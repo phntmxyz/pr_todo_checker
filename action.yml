@@ -14,7 +14,3 @@ inputs:
 runs:
   using: 'node20'
   main: 'dist/index.js'
-
-outputs:
-  comment:
-    description: 'Comment created by the action'
