@@ -1,0 +1,20 @@
+name: 'TODO Finder Action'
+
+description: 'Find and comment on TODOs in pull requests'
+
+inputs:
+  token:
+    description: 'GitHub token'
+    required: true
+  base:
+    description: 'Base ref'
+  head:
+    description: 'Head ref'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
+
+outputs:
+  comment:
+    description: 'Comment created by the action'
