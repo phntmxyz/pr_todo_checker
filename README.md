@@ -1,6 +1,6 @@
 # GitHub TODO Finder Action
 
-[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-TODO%20Finder%20Action-blue?logo=github)](
+![GitHub Marketplace](https://img.shields.io/badge/Marketplace-TODO%20Finder%20Action-blue?logo=github)
 
 [![GitHub Super-Linter](https://github.com/phntmxyz/todo-finder-action/actions/workflows/linter.yml/badge.svg)](https://github.com/super-linter/super-linter)
 ![CI](https://github.com/phntmxyz/todo-finder-action/actions/workflows/ci.yml/badge.svg)

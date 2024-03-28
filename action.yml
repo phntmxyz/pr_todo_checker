@@ -10,7 +10,7 @@ inputs:
     description: 'Base ref'
   head:
     description: 'Head ref'
-  usee-output:
+  use-output:
     description:
       'Save TODOs as GitHub Actions output instead of commenting on PR.'
     required: false
