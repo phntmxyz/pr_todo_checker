@@ -29028,9 +29028,16 @@ function run() {
             }
             const prDiff = yield getPrDiff(octokit, baseRef, headRef);
             const { newTodos, removedTodos } = findTodos(prDiff);
-            const comment = generateComment(newTodos, removedTodos);
-            yield commentPr(octokit, comment);
-            core.setOutput('comment', comment);
+            const useOutput = core.getInput('use-output');
+            if (useOutput === 'true') {
+                core.setOutput('added-todos', newTodos.join('\n'));
+                core.setOutput('removed-todos', removedTodos.join('\n'));
+            }
+            else {
+                const comment = generateComment(newTodos, removedTodos);
+                yield commentPr(octokit, comment);
+                core.setOutput('comment', comment);
+            }
         }
         catch (error) {
             if (error instanceof Error) {

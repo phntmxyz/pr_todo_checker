@@ -19,10 +19,16 @@ export async function run(): Promise<void> {
     const prDiff = await getPrDiff(octokit, baseRef, headRef)
     const { newTodos, removedTodos } = findTodos(prDiff)
 
-    const comment = generateComment(newTodos, removedTodos)
+    const useOutput = core.getInput('use-output')
+    if (useOutput === 'true') {
+      core.setOutput('added-todos', newTodos.join('\n'))
+      core.setOutput('removed-todos', removedTodos.join('\n'))
+    } else {
+      const comment = generateComment(newTodos, removedTodos)
 
-    await commentPr(octokit, comment)
-    core.setOutput('comment', comment)
+      await commentPr(octokit, comment)
+      core.setOutput('comment', comment)
+    }
   } catch (error) {
     if (error instanceof Error) {
       core.setFailed(error.message)
