@@ -87,7 +87,8 @@ function getTodoIfFound(line: string): string {
 }
 
 function generateComment(newTodos: string[], removedTodos: string[]): string {
-  let comment = 'New TODOs found in this PR:\n'
+  let comment = '```[tasklist]'
+  comment += 'New TODOs found in this PR:\n'
   for (const todo of newTodos) {
     comment += `- [ ] ${todo}\n`
   }
@@ -95,6 +96,7 @@ function generateComment(newTodos: string[], removedTodos: string[]): string {
   for (const todo of removedTodos) {
     comment += `- [x] ${todo}\n`
   }
+  comment += '```'
 
   console.log('Comment:', comment)
   return comment
