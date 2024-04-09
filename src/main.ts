@@ -93,11 +93,11 @@ function getTodoIfFound(line: string): string {
 }
 
 function generateComment(newTodos: string[], removedTodos: string[]): string {
-  let comment = 'New TODOs found in this PR:\n'
+  let comment = '**New TODOs found in this PR:**\n'
   for (const todo of newTodos) {
     comment += `- [ ] ${todo}\n`
   }
-  comment += '\nSolved TODOs found in this PR:\n'
+  comment += '\n**Solved TODOs found in this PR:**\n'
   for (const todo of removedTodos) {
     comment += `- [x] ${todo}\n`
   }
@@ -129,7 +129,7 @@ async function commentPr(
   const existingComment = comments.find(
     entry =>
       entry.user?.login === 'github-actions[bot]' &&
-      entry.body?.startsWith('New TODOs found in this PR:')
+      entry.body?.startsWith('**New TODOs found in this PR:**')
   )
 
   // If the comment exists, update it; otherwise, create a new comment

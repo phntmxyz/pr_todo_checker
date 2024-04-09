@@ -29092,11 +29092,11 @@ function getTodoIfFound(line) {
     return matches[0][1];
 }
 function generateComment(newTodos, removedTodos) {
-    let comment = 'New TODOs found in this PR:\n';
+    let comment = '**New TODOs found in this PR:**\n';
     for (const todo of newTodos) {
         comment += `- [ ] ${todo}\n`;
     }
-    comment += '\nSolved TODOs found in this PR:\n';
+    comment += '\n**Solved TODOs found in this PR:**\n';
     for (const todo of removedTodos) {
         comment += `- [x] ${todo}\n`;
     }
@@ -29120,7 +29120,7 @@ function commentPr(octokit, comment, headSha, todoCount, doneCount) {
         const existingComment = comments.find(entry => {
             var _a, _b;
             return ((_a = entry.user) === null || _a === void 0 ? void 0 : _a.login) === 'github-actions[bot]' &&
-                ((_b = entry.body) === null || _b === void 0 ? void 0 : _b.startsWith('New TODOs found in this PR:'));
+                ((_b = entry.body) === null || _b === void 0 ? void 0 : _b.startsWith('**New TODOs found in this PR:**'));
         });
         // If the comment exists, update it; otherwise, create a new comment
         if (existingComment) {
