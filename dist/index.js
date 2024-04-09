@@ -29035,7 +29035,7 @@ function run() {
             }
             else {
                 const comment = generateComment(newTodos, removedTodos);
-                yield commentPr(octokit, comment, headRef);
+                yield commentPr(octokit, comment, headRef, newTodos.length + removedTodos.length, removedTodos.length);
                 core.setOutput('comment', comment);
             }
         }
@@ -29105,7 +29105,7 @@ function generateComment(newTodos, removedTodos) {
     console.log('Comment:', comment);
     return comment;
 }
-function commentPr(octokit, comment, head) {
+function commentPr(octokit, comment, head, todoCount, doneCount) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a;
         const { owner, repo } = github.context.repo;
@@ -29143,11 +29143,13 @@ function commentPr(octokit, comment, head) {
                 body: comment
             });
         }
-        yield octokit.rest.repos.addStatusCheckContexts({
+        yield octokit.rest.repos.createCommitStatus({
             owner,
             repo,
-            branch: head,
-            contexts: ['todo-check']
+            sha: head,
+            state: 'success',
+            description: `${doneCount}/${todoCount} TODOs checked`,
+            context: 'todo-check'
         }).then(() => {
             console.log('Added status check context');
         }).catch((error) => {
