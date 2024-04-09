@@ -154,25 +154,11 @@ async function commentPr(
   console.log('Current head sha is:', headSha)
 
   await octokit.rest.repos
-    .addStatusCheckContexts({
-      owner,
-      repo,
-      branch: headSha,
-      contexts: ['todo-check']
-    })
-    .then(() => {
-      console.log('Added status check context')
-    })
-    .catch(error => {
-      console.log('Error adding status check context:', error)
-    })
-
-  await octokit.rest.repos
     .createCommitStatus({
       owner,
       repo,
       sha: headSha,
-      state: 'success',
+      state: todoCount === doneCount ? 'success' : 'failure',
       description: `${doneCount}/${todoCount} TODOs checked`,
       context: 'todo-check'
     })
