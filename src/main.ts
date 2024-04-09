@@ -158,9 +158,9 @@ async function commentPr(
       owner,
       repo,
       sha: headSha,
-      state: todoCount === doneCount ? 'success' : 'pending',
-      description: `${doneCount}/${todoCount} TODOs checked`,
-      context: 'todo-check'
+      state: 'success',
+      description: `${doneCount}/${todoCount} TODOs solved`,
+      context: 'TODO Finder'
     })
     console.log('Commit status created')
   } catch (error) {
