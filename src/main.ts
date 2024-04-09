@@ -153,19 +153,17 @@ async function commentPr(
 
   console.log('Current head sha is:', headSha)
 
-  await octokit.rest.repos
-    .createCommitStatus({
+  try {
+    await octokit.rest.repos.createCommitStatus({
       owner,
       repo,
       sha: headSha,
-      state: todoCount === doneCount ? 'success' : 'failure',
+      state: todoCount === doneCount ? 'success' : 'pending',
       description: `${doneCount}/${todoCount} TODOs checked`,
       context: 'todo-check'
     })
-    .then(() => {
-      console.log('Commit status created')
-    })
-    .catch(error => {
-      console.log('Error creating commit status', error)
-    })
+    console.log('Commit status created')
+  } catch (error) {
+    console.log('Error creating commit status', error)
+  }
 }
