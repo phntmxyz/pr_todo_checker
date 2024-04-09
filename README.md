@@ -10,6 +10,9 @@
 This GitHub Action scans your code for TODO comments and generates a report.
 It's a great way to keep track of tasks that need to be done in your codebase.
 
+![todos](https://github.com/phntmxyz/todo-finder-action/assets/16827156/d6220a06-72af-41a4-9f21-b51c75d75829)
+![status](https://github.com/phntmxyz/todo-finder-action/assets/16827156/fd4cd9a1-becb-41f0-ac9b-3ade71119ed7)
+
 ## Usage
 
 To use this action in your workflow, add the following step:
