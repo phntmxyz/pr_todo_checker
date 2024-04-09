@@ -26,7 +26,7 @@ export async function run(): Promise<void> {
     } else {
       const comment = generateComment(newTodos, removedTodos)
 
-      await commentPr(octokit, comment)
+      await commentPr(octokit, comment, headRef)
       core.setOutput('comment', comment)
     }
   } catch (error) {
@@ -104,7 +104,8 @@ function generateComment(newTodos: string[], removedTodos: string[]): string {
 
 async function commentPr(
   octokit: ReturnType<typeof github.getOctokit>,
-  comment: string
+  comment: string,
+  head: string,
 ): Promise<void> {
   const { owner, repo } = github.context.repo
   const issueNumber = github.context.payload.pull_request?.number
@@ -143,4 +144,15 @@ async function commentPr(
       body: comment
     })
   }
+
+  await octokit.rest.repos.addStatusCheckContexts({
+    owner,
+    repo,
+    branch: head,
+    contexts: ['todo-check']
+  }).then(() => {
+    console.log('Added status check context')
+  }).catch((error) => {
+    console.log('Error adding status check context:', error)
+  })
 }

@@ -29035,7 +29035,7 @@ function run() {
             }
             else {
                 const comment = generateComment(newTodos, removedTodos);
-                yield commentPr(octokit, comment);
+                yield commentPr(octokit, comment, headRef);
                 core.setOutput('comment', comment);
             }
         }
@@ -29092,7 +29092,8 @@ function getTodoIfFound(line) {
     return matches[0][1];
 }
 function generateComment(newTodos, removedTodos) {
-    let comment = 'New TODOs found in this PR:\n';
+    let comment = '```[tasklist]';
+    comment += 'New TODOs found in this PR:\n';
     for (const todo of newTodos) {
         comment += `- [ ] ${todo}\n`;
     }
@@ -29100,10 +29101,11 @@ function generateComment(newTodos, removedTodos) {
     for (const todo of removedTodos) {
         comment += `- [x] ${todo}\n`;
     }
+    comment += '```';
     console.log('Comment:', comment);
     return comment;
 }
-function commentPr(octokit, comment) {
+function commentPr(octokit, comment, head) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a;
         const { owner, repo } = github.context.repo;
@@ -29141,6 +29143,16 @@ function commentPr(octokit, comment) {
                 body: comment
             });
         }
+        yield octokit.rest.repos.addStatusCheckContexts({
+            owner,
+            repo,
+            branch: head,
+            contexts: ['todo-check']
+        }).then(() => {
+            console.log('Added status check context');
+        }).catch((error) => {
+            console.log('Error adding status check context:', error);
+        });
     });
 }
 
