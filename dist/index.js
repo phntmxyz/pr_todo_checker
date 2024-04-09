@@ -29142,17 +29142,33 @@ function commentPr(octokit, comment, headSha, todoCount, doneCount) {
             });
         }
         console.log('Current head sha is:', headSha);
-        yield octokit.rest.repos.createCommitStatus({
+        yield octokit.rest.repos
+            .addStatusCheckContexts({
+            owner,
+            repo,
+            branch: headSha,
+            contexts: ['todo-check']
+        })
+            .then(() => {
+            console.log('Added status check context');
+        })
+            .catch(error => {
+            console.log('Error adding status check context:', error);
+        });
+        yield octokit.rest.repos
+            .createCommitStatus({
             owner,
             repo,
             sha: headSha,
             state: 'success',
             description: `${doneCount}/${todoCount} TODOs checked`,
             context: 'todo-check'
-        }).then(() => {
-            console.log('Added status check context');
-        }).catch((error) => {
-            console.log('Error adding status check context:', error);
+        })
+            .then(() => {
+            console.log('Commit status created');
+        })
+            .catch(error => {
+            console.log('Error creating commit status', error);
         });
     });
 }
