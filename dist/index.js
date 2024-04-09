@@ -29021,8 +29021,8 @@ function run() {
             const octokit = github.getOctokit(token);
             const base = core.getInput('base');
             const head = core.getInput('head');
-            const baseRef = base || ((_a = github.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.base.ref);
-            const headRef = head || ((_b = github.context.payload.pull_request) === null || _b === void 0 ? void 0 : _b.head.ref);
+            const baseRef = base || ((_a = github.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.base.sha);
+            const headRef = head || ((_b = github.context.payload.pull_request) === null || _b === void 0 ? void 0 : _b.head.sha);
             if (!baseRef || !headRef) {
                 throw new Error('Base or head ref not found');
             }
@@ -29105,7 +29105,7 @@ function generateComment(newTodos, removedTodos) {
     console.log('Comment:', comment);
     return comment;
 }
-function commentPr(octokit, comment, head, todoCount, doneCount) {
+function commentPr(octokit, comment, headSha, todoCount, doneCount) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a;
         const { owner, repo } = github.context.repo;
@@ -29143,11 +29143,11 @@ function commentPr(octokit, comment, head, todoCount, doneCount) {
                 body: comment
             });
         }
-        console.log('Current head sha is:', head);
+        console.log('Current head sha is:', headSha);
         yield octokit.rest.repos.createCommitStatus({
             owner,
             repo,
-            sha: head,
+            sha: headSha,
             state: 'success',
             description: `${doneCount}/${todoCount} TODOs checked`,
             context: 'todo-check'

@@ -9,8 +9,8 @@ export async function run(): Promise<void> {
     const base = core.getInput('base')
     const head = core.getInput('head')
 
-    const baseRef = base || github.context.payload.pull_request?.base.ref
-    const headRef = head || github.context.payload.pull_request?.head.ref
+    const baseRef = base || github.context.payload.pull_request?.base.sha
+    const headRef = head || github.context.payload.pull_request?.head.sha
 
     if (!baseRef || !headRef) {
       throw new Error('Base or head ref not found')
@@ -105,7 +105,7 @@ function generateComment(newTodos: string[], removedTodos: string[]): string {
 async function commentPr(
   octokit: ReturnType<typeof github.getOctokit>,
   comment: string,
-  head: string,
+  headSha: string,
   todoCount: number,
   doneCount: number
 ): Promise<void> {
@@ -147,12 +147,12 @@ async function commentPr(
     })
   }
 
-  console.log('Current head sha is:', head)
+  console.log('Current head sha is:', headSha)
 
   await octokit.rest.repos.createCommitStatus({
     owner,
     repo,
-    sha: head,
+    sha: headSha,
     state: 'success',
     description: `${doneCount}/${todoCount} TODOs checked`,
     context: 'todo-check'
