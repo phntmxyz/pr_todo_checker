@@ -147,6 +147,8 @@ async function commentPr(
     })
   }
 
+  console.log('Current head sha is:', head)
+
   await octokit.rest.repos.createCommitStatus({
     owner,
     repo,

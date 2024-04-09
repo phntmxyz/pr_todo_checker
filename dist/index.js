@@ -29143,6 +29143,7 @@ function commentPr(octokit, comment, head, todoCount, doneCount) {
                 body: comment
             });
         }
+        console.log('Current head sha is:', head);
         yield octokit.rest.repos.createCommitStatus({
             owner,
             repo,
