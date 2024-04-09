@@ -29092,8 +29092,7 @@ function getTodoIfFound(line) {
     return matches[0][1];
 }
 function generateComment(newTodos, removedTodos) {
-    let comment = '```[tasklist]';
-    comment += 'New TODOs found in this PR:\n';
+    let comment = 'New TODOs found in this PR:\n';
     for (const todo of newTodos) {
         comment += `- [ ] ${todo}\n`;
     }
@@ -29101,7 +29100,6 @@ function generateComment(newTodos, removedTodos) {
     for (const todo of removedTodos) {
         comment += `- [x] ${todo}\n`;
     }
-    comment += '```';
     console.log('Comment:', comment);
     return comment;
 }
