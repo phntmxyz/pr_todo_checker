@@ -74,7 +74,7 @@ export function findTodos(prDiff: PrDiff): Todo[] {
           const todo = getTodoIfFound(line)
           if (todo === undefined) return
           return {
-            line: startLineNumer + index,
+            line: index,
             content: todo,
             added: line.startsWith('+')
           }

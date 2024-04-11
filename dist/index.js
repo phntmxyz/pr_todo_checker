@@ -29082,7 +29082,7 @@ function findTodos(prDiff) {
             if (todo === undefined)
                 return;
             return {
-                line: startLineNumer + index,
+                line: index,
                 content: todo,
                 added: line.startsWith('+')
             };
