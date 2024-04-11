@@ -1,23 +1,18 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
 import { PrDiff, Todo, InnerTodo } from './types'
+import { start } from 'repl'
 
 export async function run(): Promise<void> {
   try {
     const token = core.getInput('token')
     const octokit = github.getOctokit(token)
 
-    const base = core.getInput('base')
-    const head = core.getInput('head')
-
-    const baseRef = base || github.context.payload.pull_request?.base.sha
-    const headRef = head || github.context.payload.pull_request?.head.sha
-
-    if (!baseRef || !headRef) {
-      throw new Error('Base or head ref not found')
+    const pr = github.context.payload.pull_request
+    if (!pr) {
+      throw new Error('This action can only be run on pull requests')
     }
-
-    const prDiff = await getPrDiff(octokit, baseRef, headRef)
+    const prDiff = await getPrDiff(octokit, pr.base.sha, pr.head.sha)
 
     const todos = findTodos(prDiff)
     console.log('Todos:', JSON.stringify(todos))
@@ -26,7 +21,7 @@ export async function run(): Promise<void> {
     if (useOutput === 'true') {
       core.setOutput('todos', todos)
     } else {
-      await commentPr(octokit, headRef, todos)
+      await commentPr(octokit, pr.number, todos)
       // core.setOutput('comment', comment)
     }
   } catch (error) {
@@ -94,16 +89,16 @@ export function findTodos(prDiff: PrDiff): Todo[] {
   return todos
 }
 
-function getTodoIfFound(line: string): string {
+function getTodoIfFound(line: string): string | undefined {
   const regex = /[/*#]+.*(TODO.*)/gi
   const matches = [...line.matchAll(regex)]
-  if (matches === undefined || matches.length === 0) return ''
+  if (matches === undefined || matches.length === 0) return
   return matches[0][1]
 }
 
 async function commentPr(
   octokit: ReturnType<typeof github.getOctokit>,
-  headSha: string,
+  prNumber: number,
   todos: Todo[]
 ): Promise<void> {
   const { owner, repo } = github.context.repo
@@ -118,15 +113,17 @@ async function commentPr(
     issue_number: issueNumber
   })
 
+  const headSha = github.context.payload.pull_request?.head.sha
+
   // Find the comment created by this action
-  const existingComment = comments.find(
-    entry =>
-      entry.user?.login === 'github-actions[bot]' &&
-      entry.body?.startsWith('**New TODOs found in this PR:**')
-  )
+  // const existingComment = comments.find(
+  //   entry =>
+  //     entry.user?.login === 'github-actions[bot]' &&
+  //     entry.body?.startsWith('**New TODOs found in this PR:**')
+  // )
 
   // If the comment exists, update it; otherwise, create a new comment
-  if (existingComment) {
+  if (false) {
     // console.log(`Update existing comment #${existingComment.id}`)
     // await octokit.rest.issues.updateComment({
     //   owner,
@@ -137,18 +134,44 @@ async function commentPr(
   } else {
     console.log(`Create new comment`)
     for (const todo of todos) {
+      const addedTodos = todo.todos.filter(todo => todo.added)
+      const removedTodos = todo.todos.filter(todo => !todo.added)
       const comment = generateComment(
-        todo.todos.map(t => t.content),
-        []
+        addedTodos.map(todo => todo.content),
+        removedTodos.map(todo => todo.content)
       )
-      await octokit.rest.issues.createComment({
-        owner,
-        repo,
-        issue_number: issueNumber,
-        body: comment,
-        path: todo.filename,
-        position: todo.todos[todo.todos.length - 1].line
-      })
+
+      if (addedTodos.length !== 0) {
+        const singleLine = addedTodos.length === 1
+        await octokit.rest.pulls.createReviewComment({
+          owner,
+          repo,
+          pull_number: prNumber,
+          body: comment.newComment,
+          commit_id: headSha,
+          path: todo.filename,
+          start_side: singleLine ? undefined : 'RIGHT',
+          side: 'RIGHT',
+          start_line: singleLine ? undefined : addedTodos[0].line,
+          line: addedTodos[addedTodos.length - 1].line
+        })
+      }
+
+      if (removedTodos.length !== 0) {
+        const singleLine = removedTodos.length === 1
+        await octokit.rest.pulls.createReviewComment({
+          owner,
+          repo,
+          pull_number: prNumber,
+          body: comment.solvedComment,
+          commit_id: headSha,
+          path: todo.filename,
+          start_side: singleLine ? undefined : 'LEFT',
+          side: 'LEFT',
+          start_line: singleLine ? undefined : removedTodos[0].line,
+          line: removedTodos[removedTodos.length - 1].line
+        })
+      }
     }
   }
 
@@ -178,16 +201,20 @@ function sum(numbers: number[]): number {
   return numbers.reduce((acc, curr) => acc + curr, 0)
 }
 
-function generateComment(newTodos: string[], removedTodos: string[]): string {
-  let comment = '**New TODOs found in this PR:**\n'
+function generateComment(
+  newTodos: string[],
+  removedTodos: string[]
+): { newComment: string; solvedComment: string } {
+  let newComment = '**New TODOs:**\n'
   for (const todo of newTodos) {
-    comment += `- [ ] ${todo}\n`
+    newComment += `- [ ] ${todo}\n`
   }
-  comment += '\n**Solved TODOs found in this PR:**\n'
+  let solvedComment = '**Solved TODOs**\n'
   for (const todo of removedTodos) {
-    comment += `- [x] ${todo}\n`
+    solvedComment += `- [x] ${todo}\n`
   }
 
-  console.log('Comment:', comment)
-  return comment
+  console.log('New Tdods comment:', newComment)
+  console.log('Solved Tdods comment:', solvedComment)
+  return { newComment, solvedComment }
 }

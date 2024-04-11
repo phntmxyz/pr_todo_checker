@@ -29015,26 +29015,22 @@ const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
-        var _a, _b;
         try {
             const token = core.getInput('token');
             const octokit = github.getOctokit(token);
-            const base = core.getInput('base');
-            const head = core.getInput('head');
-            const baseRef = base || ((_a = github.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.base.sha);
-            const headRef = head || ((_b = github.context.payload.pull_request) === null || _b === void 0 ? void 0 : _b.head.sha);
-            if (!baseRef || !headRef) {
-                throw new Error('Base or head ref not found');
+            const pr = github.context.payload.pull_request;
+            if (!pr) {
+                throw new Error('This action can only be run on pull requests');
             }
-            const prDiff = yield getPrDiff(octokit, baseRef, headRef);
+            const prDiff = yield getPrDiff(octokit, pr.base.sha, pr.head.sha);
             const todos = findTodos(prDiff);
-            console.log('Todos:', todos);
+            console.log('Todos:', JSON.stringify(todos));
             const useOutput = core.getInput('use-output');
             if (useOutput === 'true') {
                 core.setOutput('todos', todos);
             }
             else {
-                yield commentPr(octokit, headRef, todos);
+                yield commentPr(octokit, pr.number, todos);
                 // core.setOutput('comment', comment)
             }
         }
@@ -29104,12 +29100,12 @@ function getTodoIfFound(line) {
     const regex = /[/*#]+.*(TODO.*)/gi;
     const matches = [...line.matchAll(regex)];
     if (matches === undefined || matches.length === 0)
-        return '';
+        return;
     return matches[0][1];
 }
-function commentPr(octokit, headSha, todos) {
+function commentPr(octokit, prNumber, todos) {
     return __awaiter(this, void 0, void 0, function* () {
-        var _a;
+        var _a, _b;
         const { owner, repo } = github.context.repo;
         const issueNumber = (_a = github.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.number;
         if (!issueNumber)
@@ -29120,34 +29116,51 @@ function commentPr(octokit, headSha, todos) {
             repo,
             issue_number: issueNumber
         });
+        const headSha = (_b = github.context.payload.pull_request) === null || _b === void 0 ? void 0 : _b.head.sha;
         // Find the comment created by this action
-        const existingComment = comments.find(entry => {
-            var _a, _b;
-            return ((_a = entry.user) === null || _a === void 0 ? void 0 : _a.login) === 'github-actions[bot]' &&
-                ((_b = entry.body) === null || _b === void 0 ? void 0 : _b.startsWith('**New TODOs found in this PR:**'));
-        });
+        // const existingComment = comments.find(
+        //   entry =>
+        //     entry.user?.login === 'github-actions[bot]' &&
+        //     entry.body?.startsWith('**New TODOs found in this PR:**')
+        // )
         // If the comment exists, update it; otherwise, create a new comment
-        if (existingComment) {
-            // console.log(`Update existing comment #${existingComment.id}`)
-            // await octokit.rest.issues.updateComment({
-            //   owner,
-            //   repo,
-            //   comment_id: existingComment.id,
-            //   body: comment
-            // })
-        }
+        if (false) {}
         else {
             console.log(`Create new comment`);
             for (const todo of todos) {
-                const comment = generateComment(todo.todos.map(t => t.content), []);
-                yield octokit.rest.issues.createComment({
-                    owner,
-                    repo,
-                    issue_number: issueNumber,
-                    body: comment,
-                    path: todo.filename,
-                    position: todo.todos[todo.todos.length - 1].line
-                });
+                const addedTodos = todo.todos.filter(todo => todo.added);
+                const removedTodos = todo.todos.filter(todo => !todo.added);
+                const comment = generateComment(addedTodos.map(todo => todo.content), removedTodos.map(todo => todo.content));
+                if (addedTodos.length !== 0) {
+                    const singleLine = addedTodos.length === 1;
+                    yield octokit.rest.pulls.createReviewComment({
+                        owner,
+                        repo,
+                        pull_number: prNumber,
+                        body: comment.newComment,
+                        commit_id: headSha,
+                        path: todo.filename,
+                        start_side: singleLine ? undefined : 'RIGHT',
+                        side: 'RIGHT',
+                        start_line: singleLine ? undefined : addedTodos[0].line,
+                        line: addedTodos[addedTodos.length - 1].line
+                    });
+                }
+                if (removedTodos.length !== 0) {
+                    const singleLine = removedTodos.length === 1;
+                    yield octokit.rest.pulls.createReviewComment({
+                        owner,
+                        repo,
+                        pull_number: prNumber,
+                        body: comment.solvedComment,
+                        commit_id: headSha,
+                        path: todo.filename,
+                        start_side: singleLine ? undefined : 'LEFT',
+                        side: 'LEFT',
+                        start_line: singleLine ? undefined : removedTodos[0].line,
+                        line: removedTodos[removedTodos.length - 1].line
+                    });
+                }
             }
         }
         console.log('Current head sha is:', headSha);
@@ -29173,16 +29186,17 @@ function sum(numbers) {
     return numbers.reduce((acc, curr) => acc + curr, 0);
 }
 function generateComment(newTodos, removedTodos) {
-    let comment = '**New TODOs found in this PR:**\n';
+    let newComment = '**New TODOs:**\n';
     for (const todo of newTodos) {
-        comment += `- [ ] ${todo}\n`;
+        newComment += `- [ ] ${todo}\n`;
     }
-    comment += '\n**Solved TODOs found in this PR:**\n';
+    let solvedComment = '**Solved TODOs**\n';
     for (const todo of removedTodos) {
-        comment += `- [x] ${todo}\n`;
+        solvedComment += `- [x] ${todo}\n`;
     }
-    console.log('Comment:', comment);
-    return comment;
+    console.log('New Tdods comment:', newComment);
+    console.log('Solved Tdods comment:', solvedComment);
+    return { newComment, solvedComment };
 }
 
 
