@@ -6,15 +6,13 @@ inputs:
   token:
     description: 'GitHub token'
     required: true
-  base:
-    description: 'Base ref'
-  head:
-    description: 'Head ref'
   use-output:
     description:
       'Save TODOs as GitHub Actions output instead of commenting on PR.'
     required: false
     default: 'false'
+
+run: git config user.name todo-finder-action
 
 runs:
   using: 'node20'
