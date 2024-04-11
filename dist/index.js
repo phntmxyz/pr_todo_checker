@@ -29027,16 +29027,15 @@ function run() {
                 throw new Error('Base or head ref not found');
             }
             const prDiff = yield getPrDiff(octokit, baseRef, headRef);
-            const { newTodos, removedTodos } = findTodos(prDiff);
+            const todos = findTodos(prDiff);
+            console.log('Todos:', todos);
             const useOutput = core.getInput('use-output');
             if (useOutput === 'true') {
-                core.setOutput('added-todos', newTodos.join('\n'));
-                core.setOutput('removed-todos', removedTodos.join('\n'));
+                core.setOutput('todos', todos);
             }
             else {
-                const comment = generateComment(newTodos, removedTodos);
-                yield commentPr(octokit, comment, headRef, newTodos.length + removedTodos.length, removedTodos.length);
-                core.setOutput('comment', comment);
+                yield commentPr(octokit, headRef, todos);
+                // core.setOutput('comment', comment)
             }
         }
         catch (error) {
@@ -29053,35 +29052,52 @@ function run() {
 exports.run = run;
 function getPrDiff(octokit, base, head) {
     return __awaiter(this, void 0, void 0, function* () {
-        var _a, _b, _c;
+        var _a;
         const { owner, repo } = github.context.repo;
         const response = yield octokit.rest.repos.compareCommitsWithBasehead({
             owner,
             repo,
             basehead: `${base}...${head}`
         });
-        return (_c = (_b = (_a = response === null || response === void 0 ? void 0 : response.data) === null || _a === void 0 ? void 0 : _a.files) === null || _b === void 0 ? void 0 : _b.map(file => file.patch).join('\n')) !== null && _c !== void 0 ? _c : '';
+        return ((_a = response === null || response === void 0 ? void 0 : response.data) === null || _a === void 0 ? void 0 : _a.files) || [];
     });
 }
 function findTodos(prDiff) {
-    const newTodos = [];
-    const removedTodos = [];
-    const lines = prDiff.split('\n');
-    for (const line of lines) {
-        if (line.startsWith('+')) {
+    // Find first number in string
+    const regex = /(\d+)/;
+    const todos = prDiff
+        .map(file => {
+        const patch = file.patch;
+        if (patch === undefined)
+            return;
+        const lines = patch.split('\n');
+        if (lines === undefined || lines.length === 0)
+            return;
+        // remove first line and get the line number where the patch starts
+        const firstLine = lines.shift();
+        const match = firstLine === null || firstLine === void 0 ? void 0 : firstLine.match(regex);
+        if (match === undefined || match === null || (match === null || match === void 0 ? void 0 : match.length) === 0)
+            return;
+        const startLineNumer = parseInt(match[0]);
+        // get all todos from the patch map them to the line number
+        const todos = lines
+            .map((line, index) => {
             const todo = getTodoIfFound(line);
-            if (todo.length > 0)
-                newTodos.push(todo.trim());
-        }
-        else if (line.startsWith('-')) {
-            const todo = getTodoIfFound(line);
-            if (todo.length > 0)
-                removedTodos.push(todo.trim());
-        }
-    }
-    console.log('New TODOs found in this PR:', newTodos);
-    console.log('Solved TODOs found in this PR:', removedTodos);
-    return { newTodos, removedTodos };
+            if (todo === undefined)
+                return;
+            return {
+                line: startLineNumer + index,
+                content: todo,
+                added: line.startsWith('+')
+            };
+        })
+            .filter((todo) => todo !== undefined);
+        if (todos.length == 0)
+            return;
+        return { filename: file.filename, todos: todos };
+    })
+        .filter((todo) => todo !== undefined);
+    return todos;
 }
 exports.findTodos = findTodos;
 function getTodoIfFound(line) {
@@ -29091,19 +29107,7 @@ function getTodoIfFound(line) {
         return '';
     return matches[0][1];
 }
-function generateComment(newTodos, removedTodos) {
-    let comment = '**New TODOs found in this PR:**\n';
-    for (const todo of newTodos) {
-        comment += `- [ ] ${todo}\n`;
-    }
-    comment += '\n**Solved TODOs found in this PR:**\n';
-    for (const todo of removedTodos) {
-        comment += `- [x] ${todo}\n`;
-    }
-    console.log('Comment:', comment);
-    return comment;
-}
-function commentPr(octokit, comment, headSha, todoCount, doneCount) {
+function commentPr(octokit, headSha, todos) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a;
         const { owner, repo } = github.context.repo;
@@ -29124,24 +29128,31 @@ function commentPr(octokit, comment, headSha, todoCount, doneCount) {
         });
         // If the comment exists, update it; otherwise, create a new comment
         if (existingComment) {
-            console.log(`Update existing comment #${existingComment.id}`);
-            yield octokit.rest.issues.updateComment({
-                owner,
-                repo,
-                comment_id: existingComment.id,
-                body: comment
-            });
+            // console.log(`Update existing comment #${existingComment.id}`)
+            // await octokit.rest.issues.updateComment({
+            //   owner,
+            //   repo,
+            //   comment_id: existingComment.id,
+            //   body: comment
+            // })
         }
         else {
             console.log(`Create new comment`);
-            yield octokit.rest.issues.createComment({
-                owner,
-                repo,
-                issue_number: issueNumber,
-                body: comment
-            });
+            for (const todo of todos) {
+                const comment = generateComment(todo.todos.map(t => t.content), []);
+                yield octokit.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: issueNumber,
+                    body: comment,
+                    path: todo.filename,
+                    position: todo.todos[todo.todos.length - 1].line
+                });
+            }
         }
         console.log('Current head sha is:', headSha);
+        const doneCount = sum(todos.map(todo => todo.todos.filter(todo => todo.added).length));
+        const todoCount = sum(todos.map(todo => todo.todos.length));
         try {
             yield octokit.rest.repos.createCommitStatus({
                 owner,
@@ -29157,6 +29168,21 @@ function commentPr(octokit, comment, headSha, todoCount, doneCount) {
             console.log('Error creating commit status', error);
         }
     });
+}
+function sum(numbers) {
+    return numbers.reduce((acc, curr) => acc + curr, 0);
+}
+function generateComment(newTodos, removedTodos) {
+    let comment = '**New TODOs found in this PR:**\n';
+    for (const todo of newTodos) {
+        comment += `- [ ] ${todo}\n`;
+    }
+    comment += '\n**Solved TODOs found in this PR:**\n';
+    for (const todo of removedTodos) {
+        comment += `- [x] ${todo}\n`;
+    }
+    console.log('Comment:', comment);
+    return comment;
 }
 
 

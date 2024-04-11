@@ -1,5 +1,6 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
+import { PrDiff, Todo, InnerTodo } from './types'
 
 export async function run(): Promise<void> {
   try {
@@ -17,23 +18,16 @@ export async function run(): Promise<void> {
     }
 
     const prDiff = await getPrDiff(octokit, baseRef, headRef)
-    const { newTodos, removedTodos } = findTodos(prDiff)
+
+    const todos = findTodos(prDiff)
+    console.log('Todos:', JSON.stringify(todos))
 
     const useOutput = core.getInput('use-output')
     if (useOutput === 'true') {
-      core.setOutput('added-todos', newTodos.join('\n'))
-      core.setOutput('removed-todos', removedTodos.join('\n'))
+      core.setOutput('todos', todos)
     } else {
-      const comment = generateComment(newTodos, removedTodos)
-
-      await commentPr(
-        octokit,
-        comment,
-        headRef,
-        newTodos.length + removedTodos.length,
-        removedTodos.length
-      )
-      core.setOutput('comment', comment)
+      await commentPr(octokit, headRef, todos)
+      // core.setOutput('comment', comment)
     }
   } catch (error) {
     if (error instanceof Error) {
@@ -49,7 +43,7 @@ async function getPrDiff(
   octokit: ReturnType<typeof github.getOctokit>,
   base: string,
   head: string
-): Promise<string> {
+): Promise<PrDiff> {
   const { owner, repo } = github.context.repo
 
   const response = await octokit.rest.repos.compareCommitsWithBasehead({
@@ -58,31 +52,46 @@ async function getPrDiff(
     basehead: `${base}...${head}`
   })
 
-  return response?.data?.files?.map(file => file.patch).join('\n') ?? ''
+  return response?.data?.files || []
 }
 
-export function findTodos(prDiff: string): {
-  newTodos: string[]
-  removedTodos: string[]
-} {
-  const newTodos: string[] = []
-  const removedTodos: string[] = []
+export function findTodos(prDiff: PrDiff): Todo[] {
+  // Find first number in string
+  const regex = /(\d+)/
 
-  const lines = prDiff.split('\n')
-  for (const line of lines) {
-    if (line.startsWith('+')) {
-      const todo = getTodoIfFound(line)
-      if (todo.length > 0) newTodos.push(todo.trim())
-    } else if (line.startsWith('-')) {
-      const todo = getTodoIfFound(line)
-      if (todo.length > 0) removedTodos.push(todo.trim())
-    }
-  }
+  const todos: Todo[] = prDiff
+    .map(file => {
+      const patch = file.patch
+      if (patch === undefined) return
 
-  console.log('New TODOs found in this PR:', newTodos)
-  console.log('Solved TODOs found in this PR:', removedTodos)
+      const lines = patch.split('\n')
+      if (lines === undefined || lines.length === 0) return
 
-  return { newTodos, removedTodos }
+      // remove first line and get the line number where the patch starts
+      const firstLine = lines.shift()
+      const match = firstLine?.match(regex)
+      if (match === undefined || match === null || match?.length === 0) return
+      const startLineNumer = parseInt(match[0])
+
+      // get all todos from the patch map them to the line number
+      const todos: InnerTodo[] = lines
+        .map((line, index) => {
+          const todo = getTodoIfFound(line)
+          if (todo === undefined) return
+          return {
+            line: startLineNumer + index,
+            content: todo,
+            added: line.startsWith('+')
+          }
+        })
+        .filter((todo): todo is InnerTodo => todo !== undefined)
+
+      if (todos.length == 0) return
+
+      return { filename: file.filename, todos: todos }
+    })
+    .filter((todo): todo is Todo => todo !== undefined)
+  return todos
 }
 
 function getTodoIfFound(line: string): string {
@@ -92,26 +101,10 @@ function getTodoIfFound(line: string): string {
   return matches[0][1]
 }
 
-function generateComment(newTodos: string[], removedTodos: string[]): string {
-  let comment = '**New TODOs found in this PR:**\n'
-  for (const todo of newTodos) {
-    comment += `- [ ] ${todo}\n`
-  }
-  comment += '\n**Solved TODOs found in this PR:**\n'
-  for (const todo of removedTodos) {
-    comment += `- [x] ${todo}\n`
-  }
-
-  console.log('Comment:', comment)
-  return comment
-}
-
 async function commentPr(
   octokit: ReturnType<typeof github.getOctokit>,
-  comment: string,
   headSha: string,
-  todoCount: number,
-  doneCount: number
+  todos: Todo[]
 ): Promise<void> {
   const { owner, repo } = github.context.repo
   const issueNumber = github.context.payload.pull_request?.number
@@ -134,24 +127,37 @@ async function commentPr(
 
   // If the comment exists, update it; otherwise, create a new comment
   if (existingComment) {
-    console.log(`Update existing comment #${existingComment.id}`)
-    await octokit.rest.issues.updateComment({
-      owner,
-      repo,
-      comment_id: existingComment.id,
-      body: comment
-    })
+    // console.log(`Update existing comment #${existingComment.id}`)
+    // await octokit.rest.issues.updateComment({
+    //   owner,
+    //   repo,
+    //   comment_id: existingComment.id,
+    //   body: comment
+    // })
   } else {
     console.log(`Create new comment`)
-    await octokit.rest.issues.createComment({
-      owner,
-      repo,
-      issue_number: issueNumber,
-      body: comment
-    })
+    for (const todo of todos) {
+      const comment = generateComment(
+        todo.todos.map(t => t.content),
+        []
+      )
+      await octokit.rest.issues.createComment({
+        owner,
+        repo,
+        issue_number: issueNumber,
+        body: comment,
+        path: todo.filename,
+        position: todo.todos[todo.todos.length - 1].line
+      })
+    }
   }
 
   console.log('Current head sha is:', headSha)
+
+  const doneCount = sum(
+    todos.map(todo => todo.todos.filter(todo => todo.added).length)
+  )
+  const todoCount = sum(todos.map(todo => todo.todos.length))
 
   try {
     await octokit.rest.repos.createCommitStatus({
@@ -166,4 +172,22 @@ async function commentPr(
   } catch (error) {
     console.log('Error creating commit status', error)
   }
+}
+
+function sum(numbers: number[]): number {
+  return numbers.reduce((acc, curr) => acc + curr, 0)
+}
+
+function generateComment(newTodos: string[], removedTodos: string[]): string {
+  let comment = '**New TODOs found in this PR:**\n'
+  for (const todo of newTodos) {
+    comment += `- [ ] ${todo}\n`
+  }
+  comment += '\n**Solved TODOs found in this PR:**\n'
+  for (const todo of removedTodos) {
+    comment += `- [x] ${todo}\n`
+  }
+
+  console.log('Comment:', comment)
+  return comment
 }
