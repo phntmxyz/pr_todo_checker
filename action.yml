@@ -12,8 +12,6 @@ inputs:
     required: false
     default: 'false'
 
-run: git config user.name todo-finder-action
-
 runs:
   using: 'node20'
   main: 'dist/index.js'
