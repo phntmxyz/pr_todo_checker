@@ -29034,11 +29034,10 @@ function run() {
                 console.log('Comment change detected');
                 const { owner, repo } = github.context.repo;
                 // Get all comments on the pull request
-                const { data: comments } = yield octokit.rest.pulls.listCommentsForReview({
+                const { data: comments } = yield octokit.rest.pulls.listReviewComments({
                     owner,
                     repo,
-                    pull_number: prNumber,
-                    review_id: reviewId
+                    pull_number: prNumber
                 });
                 console.log('Found comments:', comments.length);
                 let todoCount = 0;

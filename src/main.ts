@@ -27,14 +27,11 @@ export async function run(): Promise<void> {
       const { owner, repo } = github.context.repo
 
       // Get all comments on the pull request
-      const { data: comments } = await octokit.rest.pulls.listCommentsForReview(
-        {
-          owner,
-          repo,
-          pull_number: prNumber,
-          review_id: reviewId
-        }
-      )
+      const { data: comments } = await octokit.rest.pulls.listReviewComments({
+        owner,
+        repo,
+        pull_number: prNumber
+      })
       console.log('Found comments:', comments.length)
 
       let todoCount = 0
