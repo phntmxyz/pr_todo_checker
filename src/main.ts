@@ -1,12 +1,17 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
 import { PrDiff, Todo, InnerTodo } from './types'
-import { start } from 'repl'
 
 export async function run(): Promise<void> {
   try {
     const token = core.getInput('token')
     const octokit = github.getOctokit(token)
+
+    const payload = github.context.payload
+    if (payload) {
+      console.log(JSON.stringify(payload))
+      return
+    }
 
     const editIssueId = core.getInput('edit-issue-id')
     if (editIssueId) {
@@ -14,17 +19,17 @@ export async function run(): Promise<void> {
       return
     }
 
-    const pr = github.context.payload.pull_request
-    if (!pr) {
-      throw new Error('This action can only be run on pull requests')
-    }
-    const prDiff = await getPrDiff(octokit, pr.base.sha, pr.head.sha)
+    //   const pr = github.context.payload.pull_request
+    //   if (!pr) {
+    //     throw new Error('This action can only be run on pull requests')
+    //   }
+    //   const prDiff = await getPrDiff(octokit, pr.base.sha, pr.head.sha)
 
-    const todos = findTodos(prDiff)
-    console.log('Todos:', JSON.stringify(todos))
+    //   const todos = findTodos(prDiff)
+    //   console.log('Todos:', JSON.stringify(todos))
 
-    const useOutput = core.getInput('use-output')
-    await commentPr(octokit, pr.number, todos)
+    //   const useOutput = core.getInput('use-output')
+    //   await commentPr(octokit, pr.number, todos)
   } catch (error) {
     if (error instanceof Error) {
       core.setFailed(error.message)
