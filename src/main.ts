@@ -186,12 +186,12 @@ function sum(numbers: number[]): number {
 
 function generateComment(todo: InnerTodo): string {
   let comment =
-    'A new TODO was found. If you want to fix it later on, mark it as ignore.\n'
-  comment += `${todo.content}\n`
+    'A new Todo was found. If you want to fix it later on, mark it as ignore.\n'
+  comment += `*${todo.content}*\n`
   if (todo.added) {
-    comment += `- [ ] Ignore: ${todo.content}`
+    comment += `- [ ] Ignore`
   } else {
-    comment += `- [x] Ignore: ~~${todo.content}~~`
+    comment += `- [x] Ignore`
   }
   console.log(comment)
   return comment

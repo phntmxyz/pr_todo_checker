@@ -29180,13 +29180,13 @@ function sum(numbers) {
     return numbers.reduce((acc, curr) => acc + curr, 0);
 }
 function generateComment(todo) {
-    let comment = 'A new TODO was found. If you want to fix it later on, mark it as ignore.\n';
-    comment += `${todo.content}\n`;
+    let comment = 'A new Todo was found. If you want to fix it later on, mark it as ignore.\n';
+    comment += `*${todo.content}*\n`;
     if (todo.added) {
-        comment += `- [ ] Ignore: ${todo.content}`;
+        comment += `- [ ] Ignore`;
     }
     else {
-        comment += `- [x] Ignore: ~~${todo.content}~~`;
+        comment += `- [x] Ignore`;
     }
     console.log(comment);
     return comment;
