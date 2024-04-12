@@ -21,11 +21,14 @@ export async function run(): Promise<void> {
       const { owner, repo } = github.context.repo
 
       // Get all comments on the pull request
-      const { data: comments } = await octokit.rest.issues.listComments({
-        owner,
-        repo,
-        issue_number: prNumber
-      })
+      const { data: comments } = await octokit.rest.pulls.listCommentsForReview(
+        {
+          owner,
+          repo,
+          pull_number: prNumber,
+          review_id: github.context.payload.comment?.pull_request_review_id
+        }
+      )
       console.log('Found comments:', comments.length)
 
       let todoCount = 0
@@ -161,75 +164,44 @@ async function commentPr(
 ): Promise<void> {
   const { owner, repo } = github.context.repo
   const issueNumber = github.context.payload.pull_request?.number
+  const headSha = github.context.payload.pull_request?.head.sha
 
   if (!issueNumber) throw new Error('Issue number not found')
 
-  // Get all comments on the pull request
-  const { data: comments } = await octokit.rest.issues.listComments({
-    owner,
-    repo,
-    issue_number: issueNumber
-  })
+  console.log(`Add found todos as comments to PR #${prNumber}`)
 
-  const headSha = github.context.payload.pull_request?.head.sha
+  for (const todo of todos) {
+    const addedTodos = todo.todos.filter(todo => todo.added)
+    const removedTodos = todo.todos.filter(todo => !todo.added)
 
-  const commentIds: number[] = []
+    for (const innerTodo of addedTodos) {
+      let response = await octokit.rest.pulls.createReviewComment({
+        owner,
+        repo,
+        pull_number: prNumber,
+        body: generateComment(innerTodo),
+        commit_id: headSha,
+        path: todo.filename,
+        side: 'RIGHT',
+        line: innerTodo.line
+      })
+    }
 
-  // Find the comment created by this action
-  // const existingComment = comments.find(
-  //   entry =>
-  //     entry.user?.login === 'github-actions[bot]' &&
-  //     entry.body?.startsWith('**New TODOs found in this PR:**')
-  // )
-
-  // If the comment exists, update it; otherwise, create a new comment
-  if (false) {
-    // console.log(`Update existing comment #${existingComment.id}`)
-    // await octokit.rest.issues.updateComment({
-    //   owner,
-    //   repo,
-    //   comment_id: existingComment.id,
-    //   body: comment
-    // })
-  } else {
-    console.log(`Add found todos as comments to PR #${prNumber}`)
-
-    for (const todo of todos) {
-      const addedTodos = todo.todos.filter(todo => todo.added)
-      const removedTodos = todo.todos.filter(todo => !todo.added)
-
-      for (const innerTodo of addedTodos) {
-        let response = await octokit.rest.pulls.createReviewComment({
-          owner,
-          repo,
-          pull_number: prNumber,
-          body: generateComment(innerTodo),
-          commit_id: headSha,
-          path: todo.filename,
-          side: 'RIGHT',
-          line: innerTodo.line
-        })
-        commentIds.push(response.data.id)
-      }
-
-      for (const innerTodo of removedTodos) {
-        let response = await octokit.rest.pulls.createReviewComment({
-          owner,
-          repo,
-          pull_number: prNumber,
-          body: generateComment(innerTodo),
-          commit_id: headSha,
-          path: todo.filename,
-          side: 'LEFT',
-          line: innerTodo.line
-        })
-        commentIds.push(response.data.id)
-      }
+    for (const innerTodo of removedTodos) {
+      let response = await octokit.rest.pulls.createReviewComment({
+        owner,
+        repo,
+        pull_number: prNumber,
+        body: generateComment(innerTodo),
+        commit_id: headSha,
+        path: todo.filename,
+        side: 'LEFT',
+        line: innerTodo.line
+      })
     }
   }
 
   console.log('Current head sha is:', headSha)
-  console.log('Comment ids:', commentIds.join(', '))
 
   const doneCount = sum(
     todos.map(todo => todo.todos.filter(todo => !todo.added).length)
