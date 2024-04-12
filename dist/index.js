@@ -29026,6 +29026,10 @@ function run() {
             }
             const isCommentChange = github.context.payload.action === 'edited';
             const user = (_c = (_b = github.context.payload.comment) === null || _b === void 0 ? void 0 : _b.user) === null || _c === void 0 ? void 0 : _c.login;
+            const reviewId = (_d = github.context.payload.comment) === null || _d === void 0 ? void 0 : _d.pull_request_review_id;
+            console.log('Is comment change:', isCommentChange);
+            console.log('User:', user);
+            console.log('Review id:', reviewId);
             if (isCommentChange && user === botName) {
                 console.log('Comment change detected');
                 const { owner, repo } = github.context.repo;
@@ -29034,7 +29038,7 @@ function run() {
                     owner,
                     repo,
                     pull_number: prNumber,
-                    review_id: (_d = github.context.payload.comment) === null || _d === void 0 ? void 0 : _d.pull_request_review_id
+                    review_id: reviewId
                 });
                 console.log('Found comments:', comments.length);
                 let todoCount = 0;

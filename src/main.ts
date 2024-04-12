@@ -16,6 +16,12 @@ export async function run(): Promise<void> {
 
     const isCommentChange = github.context.payload.action === 'edited'
     const user = github.context.payload.comment?.user?.login
+    const reviewId = github.context.payload.comment?.pull_request_review_id
+
+    console.log('Is comment change:', isCommentChange)
+    console.log('User:', user)
+    console.log('Review id:', reviewId)
+
     if (isCommentChange && user === botName) {
       console.log('Comment change detected')
       const { owner, repo } = github.context.repo
@@ -26,7 +32,7 @@ export async function run(): Promise<void> {
           owner,
           repo,
           pull_number: prNumber,
-          review_id: github.context.payload.comment?.pull_request_review_id
+          review_id: reviewId
         }
       )
       console.log('Found comments:', comments.length)
