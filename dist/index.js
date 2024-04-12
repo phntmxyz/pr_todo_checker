@@ -29123,7 +29123,7 @@ function findTodos(prDiff) {
     const todos = prDiff
         .map(file => {
         const patch = file.patch;
-        if (patch === undefined)
+        if (patch === undefined || file.filename.endsWith('.yml'))
             return;
         const lines = patch.split('\n');
         if (lines === undefined || lines.length === 0)

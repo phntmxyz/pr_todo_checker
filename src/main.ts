@@ -121,7 +121,7 @@ export function findTodos(prDiff: PrDiff): Todo[] {
   const todos: Todo[] = prDiff
     .map(file => {
       const patch = file.patch
-      if (patch === undefined) return
+      if (patch === undefined || file.filename.endsWith('.yml')) return
 
       const lines = patch.split('\n')
       if (lines === undefined || lines.length === 0) return
