@@ -69,25 +69,25 @@ export async function run(): Promise<void> {
         console.log('Error creating commit status', error)
       }
       return
+    } else {
+      const editIssueId = core.getInput('edit-issue-id')
+      if (editIssueId) {
+        console.log('Edit issue id:', editIssueId)
+        return
+      }
+
+      const pr = github.context.payload.pull_request
+      if (!pr) {
+        throw new Error('This action can only be run on pull requests')
+      }
+      const prDiff = await getPrDiff(octokit, pr.base.sha, pr.head.sha)
+
+      const todos = findTodos(prDiff)
+      console.log('Todos:', JSON.stringify(todos))
+
+      const useOutput = core.getInput('use-output')
+      await commentPr(octokit, pr.number, todos)
     }
-
-    const editIssueId = core.getInput('edit-issue-id')
-    if (editIssueId) {
-      console.log('Edit issue id:', editIssueId)
-      return
-    }
-
-    //   const pr = github.context.payload.pull_request
-    //   if (!pr) {
-    //     throw new Error('This action can only be run on pull requests')
-    //   }
-    //   const prDiff = await getPrDiff(octokit, pr.base.sha, pr.head.sha)
-
-    //   const todos = findTodos(prDiff)
-    //   console.log('Todos:', JSON.stringify(todos))
-
-    //   const useOutput = core.getInput('use-output')
-    //   await commentPr(octokit, pr.number, todos)
   } catch (error) {
     if (error instanceof Error) {
       core.setFailed(error.message)
@@ -154,10 +154,10 @@ export function findTodos(prDiff: PrDiff): Todo[] {
 }
 
 function getTodoIfFound(line: string): string | undefined {
-  const regex = /[/*#]+.*(TODO.*)/i
-  const matches = [...line.matchAll(regex)]
-  if (matches === undefined || matches.length === 0) return
-  return matches[0][1]
+  const regex = /[/*#]+.*(TODO.*|FIXME.*)/i
+  const match = line.match(regex)
+  if (match === undefined || match === null || match?.length === 0) return
+  return match[1]
 }
 
 async function commentPr(
@@ -178,7 +178,7 @@ async function commentPr(
     const removedTodos = todo.todos.filter(todo => !todo.added)
 
     for (const innerTodo of addedTodos) {
-      let response = await octokit.rest.pulls.createReviewComment({
+      await octokit.rest.pulls.createReviewComment({
         owner,
         repo,
         pull_number: prNumber,
@@ -191,7 +191,7 @@ async function commentPr(
     }
 
     for (const innerTodo of removedTodos) {
-      let response = await octokit.rest.pulls.createReviewComment({
+      await octokit.rest.pulls.createReviewComment({
         owner,
         repo,
         pull_number: prNumber,

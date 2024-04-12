@@ -29076,20 +29076,22 @@ function run() {
                 }
                 return;
             }
-            const editIssueId = core.getInput('edit-issue-id');
-            if (editIssueId) {
-                console.log('Edit issue id:', editIssueId);
-                return;
+            else {
+                const editIssueId = core.getInput('edit-issue-id');
+                if (editIssueId) {
+                    console.log('Edit issue id:', editIssueId);
+                    return;
+                }
+                const pr = github.context.payload.pull_request;
+                if (!pr) {
+                    throw new Error('This action can only be run on pull requests');
+                }
+                const prDiff = yield getPrDiff(octokit, pr.base.sha, pr.head.sha);
+                const todos = findTodos(prDiff);
+                console.log('Todos:', JSON.stringify(todos));
+                const useOutput = core.getInput('use-output');
+                yield commentPr(octokit, pr.number, todos);
             }
-            //   const pr = github.context.payload.pull_request
-            //   if (!pr) {
-            //     throw new Error('This action can only be run on pull requests')
-            //   }
-            //   const prDiff = await getPrDiff(octokit, pr.base.sha, pr.head.sha)
-            //   const todos = findTodos(prDiff)
-            //   console.log('Todos:', JSON.stringify(todos))
-            //   const useOutput = core.getInput('use-output')
-            //   await commentPr(octokit, pr.number, todos)
         }
         catch (error) {
             if (error instanceof Error) {
@@ -29154,11 +29156,11 @@ function findTodos(prDiff) {
 }
 exports.findTodos = findTodos;
 function getTodoIfFound(line) {
-    const regex = /[/*#]+.*(TODO.*)/i;
-    const matches = [...line.matchAll(regex)];
-    if (matches === undefined || matches.length === 0)
+    const regex = /[/*#]+.*(TODO.*|FIXME.*)/i;
+    const match = line.match(regex);
+    if (match === undefined || match === null || (match === null || match === void 0 ? void 0 : match.length) === 0)
         return;
-    return matches[0][1];
+    return match[1];
 }
 function commentPr(octokit, prNumber, todos) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -29173,7 +29175,7 @@ function commentPr(octokit, prNumber, todos) {
             const addedTodos = todo.todos.filter(todo => todo.added);
             const removedTodos = todo.todos.filter(todo => !todo.added);
             for (const innerTodo of addedTodos) {
-                let response = yield octokit.rest.pulls.createReviewComment({
+                yield octokit.rest.pulls.createReviewComment({
                     owner,
                     repo,
                     pull_number: prNumber,
@@ -29185,7 +29187,7 @@ function commentPr(octokit, prNumber, todos) {
                 });
             }
             for (const innerTodo of removedTodos) {
-                let response = yield octokit.rest.pulls.createReviewComment({
+                yield octokit.rest.pulls.createReviewComment({
                     owner,
                     repo,
                     pull_number: prNumber,
