@@ -29031,7 +29031,6 @@ function run() {
             }
             else {
                 yield commentPr(octokit, pr.number, todos);
-                // core.setOutput('comment', comment)
             }
         }
         catch (error) {
@@ -29082,7 +29081,7 @@ function findTodos(prDiff) {
             if (todo === undefined)
                 return;
             return {
-                line: index,
+                line: startLineNumer + index,
                 content: todo,
                 added: line.startsWith('+')
             };
@@ -29130,35 +29129,28 @@ function commentPr(octokit, prNumber, todos) {
             for (const todo of todos) {
                 const addedTodos = todo.todos.filter(todo => todo.added);
                 const removedTodos = todo.todos.filter(todo => !todo.added);
-                const comment = generateComment(addedTodos.map(todo => todo.content), removedTodos.map(todo => todo.content));
-                if (addedTodos.length !== 0) {
-                    const singleLine = addedTodos.length === 1;
+                for (const innerTodo of addedTodos) {
                     yield octokit.rest.pulls.createReviewComment({
                         owner,
                         repo,
                         pull_number: prNumber,
-                        body: comment.newComment,
+                        body: generateComment(innerTodo),
                         commit_id: headSha,
                         path: todo.filename,
-                        start_side: singleLine ? undefined : 'RIGHT',
                         side: 'RIGHT',
-                        start_line: singleLine ? undefined : addedTodos[0].line,
-                        line: addedTodos[addedTodos.length - 1].line
+                        line: innerTodo.line
                     });
                 }
-                if (removedTodos.length !== 0) {
-                    const singleLine = removedTodos.length === 1;
+                for (const innerTodo of removedTodos) {
                     yield octokit.rest.pulls.createReviewComment({
                         owner,
                         repo,
                         pull_number: prNumber,
-                        body: comment.solvedComment,
+                        body: generateComment(innerTodo),
                         commit_id: headSha,
                         path: todo.filename,
-                        start_side: singleLine ? undefined : 'LEFT',
                         side: 'LEFT',
-                        start_line: singleLine ? undefined : removedTodos[0].line,
-                        line: removedTodos[removedTodos.length - 1].line
+                        line: innerTodo.line
                     });
                 }
             }
@@ -29185,18 +29177,16 @@ function commentPr(octokit, prNumber, todos) {
 function sum(numbers) {
     return numbers.reduce((acc, curr) => acc + curr, 0);
 }
-function generateComment(newTodos, removedTodos) {
-    let newComment = '**New TODOs:**\n';
-    for (const todo of newTodos) {
-        newComment += `- [ ] ${todo}\n`;
+function generateComment(todo) {
+    let comment = '**Found TODO:**\n';
+    if (todo.added) {
+        comment += `- [ ] Ignore: ${todo.content}`;
     }
-    let solvedComment = '**Solved TODOs**\n';
-    for (const todo of removedTodos) {
-        solvedComment += `- [x] ${todo}\n`;
+    else {
+        comment += `- [x] Ignore: ~~${todo.content}~~`;
     }
-    console.log('New Tdods comment:', newComment);
-    console.log('Solved Tdods comment:', solvedComment);
-    return { newComment, solvedComment };
+    console.log(comment);
+    return comment;
 }
 
 
