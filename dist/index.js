@@ -29027,6 +29027,7 @@ function run() {
             const isCommentChange = github.context.payload.action === 'edited';
             const user = (_c = (_b = github.context.payload.comment) === null || _b === void 0 ? void 0 : _b.user) === null || _c === void 0 ? void 0 : _c.login;
             if (isCommentChange && user === botName) {
+                console.log('Comment change detected');
                 const { owner, repo } = github.context.repo;
                 // Get all comments on the pull request
                 const { data: comments } = yield octokit.rest.issues.listComments({
@@ -29034,6 +29035,7 @@ function run() {
                     repo,
                     issue_number: prNumber
                 });
+                console.log('Found comments:', comments.length);
                 let todoCount = 0;
                 let doneCount = 0;
                 comments.forEach(comment => {
@@ -29052,6 +29054,8 @@ function run() {
                         }
                     }
                 });
+                console.log('Done:', doneCount);
+                console.log('Total:', todoCount);
                 try {
                     yield octokit.rest.repos.createCommitStatus({
                         owner,

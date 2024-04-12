@@ -17,6 +17,7 @@ export async function run(): Promise<void> {
     const isCommentChange = github.context.payload.action === 'edited'
     const user = github.context.payload.comment?.user?.login
     if (isCommentChange && user === botName) {
+      console.log('Comment change detected')
       const { owner, repo } = github.context.repo
 
       // Get all comments on the pull request
@@ -25,6 +26,7 @@ export async function run(): Promise<void> {
         repo,
         issue_number: prNumber
       })
+      console.log('Found comments:', comments.length)
 
       let todoCount = 0
       let doneCount = 0
@@ -43,6 +45,9 @@ export async function run(): Promise<void> {
           }
         }
       })
+
+      console.log('Done:', doneCount)
+      console.log('Total:', todoCount)
 
       try {
         await octokit.rest.repos.createCommitStatus({
