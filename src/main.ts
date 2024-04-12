@@ -7,9 +7,56 @@ export async function run(): Promise<void> {
     const token = core.getInput('token')
     const octokit = github.getOctokit(token)
 
-    const payload = github.context.payload
-    if (payload) {
-      console.log(JSON.stringify(payload))
+    const botName = 'github-actions[bot]'
+    const prNumber = github.context.payload.pull_request?.number
+
+    if (!prNumber) {
+      throw new Error('Action can only be run on pull requests')
+    }
+
+    const isCommentChange = github.context.payload.action === 'edited'
+    const user = github.context.payload.comment?.user?.login
+    if (isCommentChange && user === botName) {
+      const { owner, repo } = github.context.repo
+
+      // Get all comments on the pull request
+      const { data: comments } = await octokit.rest.issues.listComments({
+        owner,
+        repo,
+        issue_number: prNumber
+      })
+
+      let todoCount = 0
+      let doneCount = 0
+      comments.forEach(comment => {
+        if (comment.user?.login === botName) {
+          // Check if the comment contains a markdown checkbox which is checked
+          const matches = comment.body?.match(/- \[x\]/g)
+          if (matches) {
+            doneCount += 1
+            todoCount += 1
+          }
+          // Check if the comment contains a markdown checkbox which is unchecked
+          const uncheckedMatches = comment.body?.match(/- \[ \]/g)
+          if (uncheckedMatches) {
+            todoCount += 1
+          }
+        }
+      })
+
+      try {
+        await octokit.rest.repos.createCommitStatus({
+          owner,
+          repo,
+          sha: github.context.payload.pull_request?.head.sha,
+          state: doneCount === todoCount ? 'success' : 'failure',
+          description: `${doneCount}/${todoCount} TODOs solved`,
+          context: 'TODO Finder'
+        })
+        console.log('Commit status created')
+      } catch (error) {
+        console.log('Error creating commit status', error)
+      }
       return
     }
 
@@ -96,7 +143,7 @@ export function findTodos(prDiff: PrDiff): Todo[] {
 }
 
 function getTodoIfFound(line: string): string | undefined {
-  const regex = /[/*#]+.*(TODO.*)/gi
+  const regex = /[/*#]+.*(TODO.*)/i
   const matches = [...line.matchAll(regex)]
   if (matches === undefined || matches.length === 0) return
   return matches[0][1]

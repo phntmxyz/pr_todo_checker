@@ -29015,12 +29015,57 @@ const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
+        var _a, _b, _c, _d;
         try {
             const token = core.getInput('token');
             const octokit = github.getOctokit(token);
-            const payload = github.context.payload;
-            if (payload) {
-                console.log(JSON.stringify(payload));
+            const botName = 'github-actions[bot]';
+            const prNumber = (_a = github.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.number;
+            if (!prNumber) {
+                throw new Error('Action can only be run on pull requests');
+            }
+            const isCommentChange = github.context.payload.action === 'edited';
+            const user = (_c = (_b = github.context.payload.comment) === null || _b === void 0 ? void 0 : _b.user) === null || _c === void 0 ? void 0 : _c.login;
+            if (isCommentChange && user === botName) {
+                const { owner, repo } = github.context.repo;
+                // Get all comments on the pull request
+                const { data: comments } = yield octokit.rest.issues.listComments({
+                    owner,
+                    repo,
+                    issue_number: prNumber
+                });
+                let todoCount = 0;
+                let doneCount = 0;
+                comments.forEach(comment => {
+                    var _a, _b, _c;
+                    if (((_a = comment.user) === null || _a === void 0 ? void 0 : _a.login) === botName) {
+                        // Check if the comment contains a markdown checkbox which is checked
+                        const matches = (_b = comment.body) === null || _b === void 0 ? void 0 : _b.match(/- \[x\]/g);
+                        if (matches) {
+                            doneCount += 1;
+                            todoCount += 1;
+                        }
+                        // Check if the comment contains a markdown checkbox which is unchecked
+                        const uncheckedMatches = (_c = comment.body) === null || _c === void 0 ? void 0 : _c.match(/- \[ \]/g);
+                        if (uncheckedMatches) {
+                            todoCount += 1;
+                        }
+                    }
+                });
+                try {
+                    yield octokit.rest.repos.createCommitStatus({
+                        owner,
+                        repo,
+                        sha: (_d = github.context.payload.pull_request) === null || _d === void 0 ? void 0 : _d.head.sha,
+                        state: doneCount === todoCount ? 'success' : 'failure',
+                        description: `${doneCount}/${todoCount} TODOs solved`,
+                        context: 'TODO Finder'
+                    });
+                    console.log('Commit status created');
+                }
+                catch (error) {
+                    console.log('Error creating commit status', error);
+                }
                 return;
             }
             const editIssueId = core.getInput('edit-issue-id');
@@ -29101,7 +29146,7 @@ function findTodos(prDiff) {
 }
 exports.findTodos = findTodos;
 function getTodoIfFound(line) {
-    const regex = /[/*#]+.*(TODO.*)/gi;
+    const regex = /[/*#]+.*(TODO.*)/i;
     const matches = [...line.matchAll(regex)];
     if (matches === undefined || matches.length === 0)
         return;
