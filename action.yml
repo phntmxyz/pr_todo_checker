@@ -7,22 +7,6 @@ inputs:
     description: 'GitHub token'
     required: true
 
-  edit-issue-id:
-    description: 'Edit the issue with the given ID'
-    required: false
-
-  use-output:
-    description:
-      'Save TODOs as GitHub Actions output instead of commenting on PR.'
-    required: false
-    default: 'false'
-
 runs:
   using: 'node20'
   main: 'dist/index.js'
-
-outputs:
-  added-todos:
-    description: 'Added TODOs found in Diff'
-  removed-todos:
-    description: 'Removed TODOs found in Diff'

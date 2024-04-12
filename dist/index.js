@@ -29015,82 +29015,32 @@ const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
-        var _a, _b, _c, _d, _e;
+        var _a, _b;
         try {
             const token = core.getInput('token');
             const octokit = github.getOctokit(token);
             const botName = 'github-actions[bot]';
-            const prNumber = (_a = github.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.number;
-            if (!prNumber) {
+            const pr = github.context.payload.pull_request;
+            if (!pr || !pr.number) {
                 throw new Error('Action can only be run on pull requests');
             }
             const isCommentChange = github.context.payload.action === 'edited';
-            const user = (_c = (_b = github.context.payload.comment) === null || _b === void 0 ? void 0 : _b.user) === null || _c === void 0 ? void 0 : _c.login;
-            const reviewId = (_d = github.context.payload.comment) === null || _d === void 0 ? void 0 : _d.pull_request_review_id;
+            const user = (_b = (_a = github.context.payload.comment) === null || _a === void 0 ? void 0 : _a.user) === null || _b === void 0 ? void 0 : _b.login;
             console.log('Is comment change:', isCommentChange);
-            console.log('User:', user);
-            console.log('Review id:', reviewId);
+            // Check if a comment, added by the bot, was edited. If so, update the commit status
             if (isCommentChange && user === botName) {
+                console.log('User:', user);
                 console.log('Comment change detected');
-                const { owner, repo } = github.context.repo;
-                // Get all comments on the pull request
-                const { data: comments } = yield octokit.rest.pulls.listReviewComments({
-                    owner,
-                    repo,
-                    pull_number: prNumber
-                });
-                console.log('Found comments:', comments.length);
-                let todoCount = 0;
-                let doneCount = 0;
-                comments.forEach(comment => {
-                    var _a, _b, _c;
-                    if (((_a = comment.user) === null || _a === void 0 ? void 0 : _a.login) === botName) {
-                        // Check if the comment contains a markdown checkbox which is checked
-                        const matches = (_b = comment.body) === null || _b === void 0 ? void 0 : _b.match(/- \[x\]/g);
-                        if (matches) {
-                            doneCount += 1;
-                            todoCount += 1;
-                        }
-                        // Check if the comment contains a markdown checkbox which is unchecked
-                        const uncheckedMatches = (_c = comment.body) === null || _c === void 0 ? void 0 : _c.match(/- \[ \]/g);
-                        if (uncheckedMatches) {
-                            todoCount += 1;
-                        }
-                    }
-                });
-                console.log('Done:', doneCount);
-                console.log('Total:', todoCount);
-                try {
-                    yield octokit.rest.repos.createCommitStatus({
-                        owner,
-                        repo,
-                        sha: (_e = github.context.payload.pull_request) === null || _e === void 0 ? void 0 : _e.head.sha,
-                        state: doneCount === todoCount ? 'success' : 'failure',
-                        description: `${doneCount}/${todoCount} TODOs solved`,
-                        context: 'TODO Finder'
-                    });
-                    console.log('Commit status created');
-                }
-                catch (error) {
-                    console.log('Error creating commit status', error);
-                }
-                return;
+                yield updateCommitStatus(octokit, pr.number, botName);
             }
             else {
-                const editIssueId = core.getInput('edit-issue-id');
-                if (editIssueId) {
-                    console.log('Edit issue id:', editIssueId);
-                    return;
-                }
-                const pr = github.context.payload.pull_request;
                 if (!pr) {
                     throw new Error('This action can only be run on pull requests');
                 }
                 const prDiff = yield getPrDiff(octokit, pr.base.sha, pr.head.sha);
                 const todos = findTodos(prDiff);
                 console.log('Todos:', JSON.stringify(todos));
-                const useOutput = core.getInput('use-output');
-                yield commentPr(octokit, pr.number, todos);
+                yield commentPr(octokit, pr.number, botName, todos);
             }
         }
         catch (error) {
@@ -29162,7 +29112,7 @@ function getTodoIfFound(line) {
         return;
     return match[1];
 }
-function commentPr(octokit, prNumber, todos) {
+function commentPr(octokit, prNumber, botName, todos) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a, _b, _c;
         const { owner, repo } = github.context.repo;
@@ -29176,10 +29126,10 @@ function commentPr(octokit, prNumber, todos) {
             repo,
             pull_number: prNumber
         });
-        console.log('Found comments:', comments.length);
-        // Delete all comments from the bot b
+        console.log(`Delete ${comments.length} comments`);
+        // Delete all comments from the bot before adding new ones
         for (const comment of comments) {
-            if (((_c = comment.user) === null || _c === void 0 ? void 0 : _c.login) === 'github-actions[bot]') {
+            if (((_c = comment.user) === null || _c === void 0 ? void 0 : _c.login) === botName) {
                 yield octokit.rest.pulls.deleteReviewComment({
                     owner,
                     repo,
@@ -29217,17 +29167,8 @@ function commentPr(octokit, prNumber, todos) {
             // }
         }
         console.log('Current head sha is:', headSha);
-        const doneCount = sum(todos.map(todo => todo.todos.filter(todo => !todo.added).length));
-        const todoCount = sum(todos.map(todo => todo.todos.length));
         try {
-            yield octokit.rest.repos.createCommitStatus({
-                owner,
-                repo,
-                sha: headSha,
-                state: 'success',
-                description: `${doneCount}/${todoCount} TODOs solved`,
-                context: 'TODO Finder'
-            });
+            yield updateCommitStatus(octokit, prNumber, botName);
             console.log('Commit status created');
         }
         catch (error) {
@@ -29239,7 +29180,8 @@ function sum(numbers) {
     return numbers.reduce((acc, curr) => acc + curr, 0);
 }
 function generateComment(todo) {
-    let comment = '**Found TODO:**\n';
+    let comment = 'A new TODO was found. If you want to fix it later on, mark it as ignore.\n';
+    comment += `${todo.content}\n`;
     if (todo.added) {
         comment += `- [ ] Ignore: ${todo.content}`;
     }
@@ -29248,6 +29190,62 @@ function generateComment(todo) {
     }
     console.log(comment);
     return comment;
+}
+function updateCommitStatus(octokit, prNumber, botName) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const { owner, repo } = github.context.repo;
+        // Get all comments on the pull request
+        const { data: comments } = yield octokit.rest.pulls.listReviewComments({
+            owner,
+            repo,
+            pull_number: prNumber
+        });
+        console.log('Found comments:', comments.length);
+        let todoCount = 0;
+        let doneCount = 0;
+        comments.forEach(comment => {
+            var _a, _b, _c;
+            if (((_a = comment.user) === null || _a === void 0 ? void 0 : _a.login) === botName) {
+                // Check if the comment contains a markdown checkbox which is checked
+                const matches = (_b = comment.body) === null || _b === void 0 ? void 0 : _b.match(/- \[x\]/gi);
+                if (matches) {
+                    doneCount += 1;
+                    todoCount += 1;
+                }
+                // Check if the comment contains a markdown checkbox which is unchecked
+                const uncheckedMatches = (_c = comment.body) === null || _c === void 0 ? void 0 : _c.match(/- \[ \]/gi);
+                if (uncheckedMatches) {
+                    todoCount += 1;
+                }
+            }
+        });
+        // Update the commit status
+        yield createCommitStatus(octokit, doneCount, todoCount);
+    });
+}
+function createCommitStatus(octokit, doneCount, todoCount) {
+    return __awaiter(this, void 0, void 0, function* () {
+        var _a;
+        try {
+            const { owner, repo } = github.context.repo;
+            const headSha = (_a = github.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.head.sha;
+            const state = doneCount === todoCount ? 'success' : 'failure';
+            yield octokit.rest.repos.createCommitStatus({
+                owner,
+                repo,
+                sha: headSha,
+                state: state,
+                description: `${doneCount}/${todoCount} TODOs solved`,
+                context: 'TODO Finder'
+            });
+            console.log('Done:', doneCount);
+            console.log('Total:', todoCount);
+            console.log(`Commit status created with state: ${state}`);
+        }
+        catch (error) {
+            console.log('Error creating commit status', error);
+        }
+    });
 }
 
 

@@ -8,75 +8,23 @@ export async function run(): Promise<void> {
     const octokit = github.getOctokit(token)
 
     const botName = 'github-actions[bot]'
-    const prNumber = github.context.payload.pull_request?.number
+    const pr = github.context.payload.pull_request
 
-    if (!prNumber) {
+    if (!pr || !pr.number) {
       throw new Error('Action can only be run on pull requests')
     }
 
     const isCommentChange = github.context.payload.action === 'edited'
     const user = github.context.payload.comment?.user?.login
-    const reviewId = github.context.payload.comment?.pull_request_review_id
 
     console.log('Is comment change:', isCommentChange)
-    console.log('User:', user)
-    console.log('Review id:', reviewId)
 
+    // Check if a comment, added by the bot, was edited. If so, update the commit status
     if (isCommentChange && user === botName) {
+      console.log('User:', user)
       console.log('Comment change detected')
-      const { owner, repo } = github.context.repo
-
-      // Get all comments on the pull request
-      const { data: comments } = await octokit.rest.pulls.listReviewComments({
-        owner,
-        repo,
-        pull_number: prNumber
-      })
-      console.log('Found comments:', comments.length)
-
-      let todoCount = 0
-      let doneCount = 0
-      comments.forEach(comment => {
-        if (comment.user?.login === botName) {
-          // Check if the comment contains a markdown checkbox which is checked
-          const matches = comment.body?.match(/- \[x\]/g)
-          if (matches) {
-            doneCount += 1
-            todoCount += 1
-          }
-          // Check if the comment contains a markdown checkbox which is unchecked
-          const uncheckedMatches = comment.body?.match(/- \[ \]/g)
-          if (uncheckedMatches) {
-            todoCount += 1
-          }
-        }
-      })
-
-      console.log('Done:', doneCount)
-      console.log('Total:', todoCount)
-
-      try {
-        await octokit.rest.repos.createCommitStatus({
-          owner,
-          repo,
-          sha: github.context.payload.pull_request?.head.sha,
-          state: doneCount === todoCount ? 'success' : 'failure',
-          description: `${doneCount}/${todoCount} TODOs solved`,
-          context: 'TODO Finder'
-        })
-        console.log('Commit status created')
-      } catch (error) {
-        console.log('Error creating commit status', error)
-      }
-      return
+      await updateCommitStatus(octokit, pr.number, botName)
     } else {
-      const editIssueId = core.getInput('edit-issue-id')
-      if (editIssueId) {
-        console.log('Edit issue id:', editIssueId)
-        return
-      }
-
-      const pr = github.context.payload.pull_request
       if (!pr) {
         throw new Error('This action can only be run on pull requests')
       }
@@ -84,9 +32,7 @@ export async function run(): Promise<void> {
 
       const todos = findTodos(prDiff)
       console.log('Todos:', JSON.stringify(todos))
-
-      const useOutput = core.getInput('use-output')
-      await commentPr(octokit, pr.number, todos)
+      await commentPr(octokit, pr.number, botName, todos)
     }
   } catch (error) {
     if (error instanceof Error) {
@@ -163,6 +109,7 @@ function getTodoIfFound(line: string): string | undefined {
 async function commentPr(
   octokit: ReturnType<typeof github.getOctokit>,
   prNumber: number,
+  botName: string,
   todos: Todo[]
 ): Promise<void> {
   const { owner, repo } = github.context.repo
@@ -177,11 +124,11 @@ async function commentPr(
     repo,
     pull_number: prNumber
   })
-  console.log('Found comments:', comments.length)
 
-  // Delete all comments from the bot b
+  console.log(`Delete ${comments.length} comments`)
+  // Delete all comments from the bot before adding new ones
   for (const comment of comments) {
-    if (comment.user?.login === 'github-actions[bot]') {
+    if (comment.user?.login === botName) {
       await octokit.rest.pulls.deleteReviewComment({
         owner,
         repo,
@@ -225,20 +172,8 @@ async function commentPr(
 
   console.log('Current head sha is:', headSha)
 
-  const doneCount = sum(
-    todos.map(todo => todo.todos.filter(todo => !todo.added).length)
-  )
-  const todoCount = sum(todos.map(todo => todo.todos.length))
-
   try {
-    await octokit.rest.repos.createCommitStatus({
-      owner,
-      repo,
-      sha: headSha,
-      state: 'success',
-      description: `${doneCount}/${todoCount} TODOs solved`,
-      context: 'TODO Finder'
-    })
+    await updateCommitStatus(octokit, prNumber, botName)
     console.log('Commit status created')
   } catch (error) {
     console.log('Error creating commit status', error)
@@ -250,7 +185,9 @@ function sum(numbers: number[]): number {
 }
 
 function generateComment(todo: InnerTodo): string {
-  let comment = '**Found TODO:**\n'
+  let comment =
+    'A new TODO was found. If you want to fix it later on, mark it as ignore.\n'
+  comment += `${todo.content}\n`
   if (todo.added) {
     comment += `- [ ] Ignore: ${todo.content}`
   } else {
@@ -258,4 +195,68 @@ function generateComment(todo: InnerTodo): string {
   }
   console.log(comment)
   return comment
+}
+
+async function updateCommitStatus(
+  octokit: ReturnType<typeof github.getOctokit>,
+  prNumber: number,
+  botName: string
+): Promise<void> {
+  const { owner, repo } = github.context.repo
+
+  // Get all comments on the pull request
+  const { data: comments } = await octokit.rest.pulls.listReviewComments({
+    owner,
+    repo,
+    pull_number: prNumber
+  })
+  console.log('Found comments:', comments.length)
+
+  let todoCount = 0
+  let doneCount = 0
+  comments.forEach(comment => {
+    if (comment.user?.login === botName) {
+      // Check if the comment contains a markdown checkbox which is checked
+      const matches = comment.body?.match(/- \[x\]/gi)
+      if (matches) {
+        doneCount += 1
+        todoCount += 1
+      }
+      // Check if the comment contains a markdown checkbox which is unchecked
+      const uncheckedMatches = comment.body?.match(/- \[ \]/gi)
+      if (uncheckedMatches) {
+        todoCount += 1
+      }
+    }
+  })
+
+  // Update the commit status
+  await createCommitStatus(octokit, doneCount, todoCount)
+}
+
+async function createCommitStatus(
+  octokit: ReturnType<typeof github.getOctokit>,
+  doneCount: number,
+  todoCount: number
+): Promise<void> {
+  try {
+    const { owner, repo } = github.context.repo
+    const headSha = github.context.payload.pull_request?.head.sha
+
+    const state = doneCount === todoCount ? 'success' : 'failure'
+
+    await octokit.rest.repos.createCommitStatus({
+      owner,
+      repo,
+      sha: headSha,
+      state: state,
+      description: `${doneCount}/${todoCount} TODOs solved`,
+      context: 'TODO Finder'
+    })
+    console.log('Done:', doneCount)
+    console.log('Total:', todoCount)
+    console.log(`Commit status created with state: ${state}`)
+  } catch (error) {
+    console.log('Error creating commit status', error)
+  }
 }
