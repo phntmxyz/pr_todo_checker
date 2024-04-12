@@ -6,6 +6,11 @@ inputs:
   token:
     description: 'GitHub token'
     required: true
+
+  edit-issue-id:
+    description: 'Edit the issue with the given ID'
+    required: false
+
   use-output:
     description:
       'Save TODOs as GitHub Actions output instead of commenting on PR.'

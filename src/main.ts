@@ -8,6 +8,12 @@ export async function run(): Promise<void> {
     const token = core.getInput('token')
     const octokit = github.getOctokit(token)
 
+    const editIssueId = core.getInput('edit-issue-id')
+    if (editIssueId) {
+      console.log('Edit issue id:', editIssueId)
+      return
+    }
+
     const pr = github.context.payload.pull_request
     if (!pr) {
       throw new Error('This action can only be run on pull requests')
@@ -18,11 +24,7 @@ export async function run(): Promise<void> {
     console.log('Todos:', JSON.stringify(todos))
 
     const useOutput = core.getInput('use-output')
-    if (useOutput === 'true') {
-      core.setOutput('todos', todos)
-    } else {
-      await commentPr(octokit, pr.number, todos)
-    }
+    await commentPr(octokit, pr.number, todos)
   } catch (error) {
     if (error instanceof Error) {
       core.setFailed(error.message)
@@ -114,6 +116,8 @@ async function commentPr(
 
   const headSha = github.context.payload.pull_request?.head.sha
 
+  const commentIds: number[] = []
+
   // Find the comment created by this action
   // const existingComment = comments.find(
   //   entry =>
@@ -131,13 +135,14 @@ async function commentPr(
     //   body: comment
     // })
   } else {
-    console.log(`Create new comment`)
+    console.log(`Add found todos as comments to PR #${prNumber}`)
+
     for (const todo of todos) {
       const addedTodos = todo.todos.filter(todo => todo.added)
       const removedTodos = todo.todos.filter(todo => !todo.added)
 
       for (const innerTodo of addedTodos) {
-        await octokit.rest.pulls.createReviewComment({
+        let response = await octokit.rest.pulls.createReviewComment({
           owner,
           repo,
           pull_number: prNumber,
@@ -147,10 +152,11 @@ async function commentPr(
           side: 'RIGHT',
           line: innerTodo.line
         })
+        commentIds.push(response.data.id)
       }
 
       for (const innerTodo of removedTodos) {
-        await octokit.rest.pulls.createReviewComment({
+        let response = await octokit.rest.pulls.createReviewComment({
           owner,
           repo,
           pull_number: prNumber,
@@ -160,14 +166,16 @@ async function commentPr(
           side: 'LEFT',
           line: innerTodo.line
         })
+        commentIds.push(response.data.id)
       }
     }
   }
 
   console.log('Current head sha is:', headSha)
+  console.log('Comment ids:', commentIds.join(', '))
 
   const doneCount = sum(
-    todos.map(todo => todo.todos.filter(todo => todo.added).length)
+    todos.map(todo => todo.todos.filter(todo => !todo.added).length)
   )
   const todoCount = sum(todos.map(todo => todo.todos.length))
 

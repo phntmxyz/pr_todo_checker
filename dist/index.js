@@ -29018,6 +29018,11 @@ function run() {
         try {
             const token = core.getInput('token');
             const octokit = github.getOctokit(token);
+            const editIssueId = core.getInput('edit-issue-id');
+            if (editIssueId) {
+                console.log('Edit issue id:', editIssueId);
+                return;
+            }
             const pr = github.context.payload.pull_request;
             if (!pr) {
                 throw new Error('This action can only be run on pull requests');
@@ -29026,12 +29031,7 @@ function run() {
             const todos = findTodos(prDiff);
             console.log('Todos:', JSON.stringify(todos));
             const useOutput = core.getInput('use-output');
-            if (useOutput === 'true') {
-                core.setOutput('todos', todos);
-            }
-            else {
-                yield commentPr(octokit, pr.number, todos);
-            }
+            yield commentPr(octokit, pr.number, todos);
         }
         catch (error) {
             if (error instanceof Error) {
@@ -29116,6 +29116,7 @@ function commentPr(octokit, prNumber, todos) {
             issue_number: issueNumber
         });
         const headSha = (_b = github.context.payload.pull_request) === null || _b === void 0 ? void 0 : _b.head.sha;
+        const commentIds = [];
         // Find the comment created by this action
         // const existingComment = comments.find(
         //   entry =>
@@ -29125,12 +29126,12 @@ function commentPr(octokit, prNumber, todos) {
         // If the comment exists, update it; otherwise, create a new comment
         if (false) {}
         else {
-            console.log(`Create new comment`);
+            console.log(`Add found todos as comments to PR #${prNumber}`);
             for (const todo of todos) {
                 const addedTodos = todo.todos.filter(todo => todo.added);
                 const removedTodos = todo.todos.filter(todo => !todo.added);
                 for (const innerTodo of addedTodos) {
-                    yield octokit.rest.pulls.createReviewComment({
+                    let response = yield octokit.rest.pulls.createReviewComment({
                         owner,
                         repo,
                         pull_number: prNumber,
@@ -29140,9 +29141,10 @@ function commentPr(octokit, prNumber, todos) {
                         side: 'RIGHT',
                         line: innerTodo.line
                     });
+                    commentIds.push(response.data.id);
                 }
                 for (const innerTodo of removedTodos) {
-                    yield octokit.rest.pulls.createReviewComment({
+                    let response = yield octokit.rest.pulls.createReviewComment({
                         owner,
                         repo,
                         pull_number: prNumber,
@@ -29152,11 +29154,13 @@ function commentPr(octokit, prNumber, todos) {
                         side: 'LEFT',
                         line: innerTodo.line
                     });
+                    commentIds.push(response.data.id);
                 }
             }
         }
         console.log('Current head sha is:', headSha);
-        const doneCount = sum(todos.map(todo => todo.todos.filter(todo => todo.added).length));
+        console.log('Comment ids:', commentIds.join(', '));
+        const doneCount = sum(todos.map(todo => todo.todos.filter(todo => !todo.added).length));
         const todoCount = sum(todos.map(todo => todo.todos.length));
         try {
             yield octokit.rest.repos.createCommitStatus({
