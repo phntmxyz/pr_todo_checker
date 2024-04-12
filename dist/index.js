@@ -29164,12 +29164,29 @@ function getTodoIfFound(line) {
 }
 function commentPr(octokit, prNumber, todos) {
     return __awaiter(this, void 0, void 0, function* () {
-        var _a, _b;
+        var _a, _b, _c;
         const { owner, repo } = github.context.repo;
         const issueNumber = (_a = github.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.number;
         const headSha = (_b = github.context.payload.pull_request) === null || _b === void 0 ? void 0 : _b.head.sha;
         if (!issueNumber)
             throw new Error('Issue number not found');
+        // Get all comments on the pull request
+        const { data: comments } = yield octokit.rest.pulls.listReviewComments({
+            owner,
+            repo,
+            pull_number: prNumber
+        });
+        console.log('Found comments:', comments.length);
+        // Delete all comments from the bot b
+        for (const comment of comments) {
+            if (((_c = comment.user) === null || _c === void 0 ? void 0 : _c.login) === 'github-actions[bot]') {
+                yield octokit.rest.pulls.deleteReviewComment({
+                    owner,
+                    repo,
+                    comment_id: comment.id
+                });
+            }
+        }
         console.log(`Add found todos as comments to PR #${prNumber}`);
         for (const todo of todos) {
             const addedTodos = todo.todos.filter(todo => todo.added);
@@ -29186,18 +29203,18 @@ function commentPr(octokit, prNumber, todos) {
                     line: innerTodo.line
                 });
             }
-            for (const innerTodo of removedTodos) {
-                yield octokit.rest.pulls.createReviewComment({
-                    owner,
-                    repo,
-                    pull_number: prNumber,
-                    body: generateComment(innerTodo),
-                    commit_id: headSha,
-                    path: todo.filename,
-                    side: 'LEFT',
-                    line: innerTodo.line
-                });
-            }
+            // for (const innerTodo of removedTodos) {
+            //   await octokit.rest.pulls.createReviewComment({
+            //     owner,
+            //     repo,
+            //     pull_number: prNumber,
+            //     body: generateComment(innerTodo),
+            //     commit_id: headSha,
+            //     path: todo.filename,
+            //     side: 'LEFT',
+            //     line: innerTodo.line
+            //   })
+            // }
         }
         console.log('Current head sha is:', headSha);
         const doneCount = sum(todos.map(todo => todo.todos.filter(todo => !todo.added).length));

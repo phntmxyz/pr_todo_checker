@@ -171,6 +171,25 @@ async function commentPr(
 
   if (!issueNumber) throw new Error('Issue number not found')
 
+  // Get all comments on the pull request
+  const { data: comments } = await octokit.rest.pulls.listReviewComments({
+    owner,
+    repo,
+    pull_number: prNumber
+  })
+  console.log('Found comments:', comments.length)
+
+  // Delete all comments from the bot b
+  for (const comment of comments) {
+    if (comment.user?.login === 'github-actions[bot]') {
+      await octokit.rest.pulls.deleteReviewComment({
+        owner,
+        repo,
+        comment_id: comment.id
+      })
+    }
+  }
+
   console.log(`Add found todos as comments to PR #${prNumber}`)
 
   for (const todo of todos) {
@@ -190,18 +209,18 @@ async function commentPr(
       })
     }
 
-    for (const innerTodo of removedTodos) {
-      await octokit.rest.pulls.createReviewComment({
-        owner,
-        repo,
-        pull_number: prNumber,
-        body: generateComment(innerTodo),
-        commit_id: headSha,
-        path: todo.filename,
-        side: 'LEFT',
-        line: innerTodo.line
-      })
-    }
+    // for (const innerTodo of removedTodos) {
+    //   await octokit.rest.pulls.createReviewComment({
+    //     owner,
+    //     repo,
+    //     pull_number: prNumber,
+    //     body: generateComment(innerTodo),
+    //     commit_id: headSha,
+    //     path: todo.filename,
+    //     side: 'LEFT',
+    //     line: innerTodo.line
+    //   })
+    // }
   }
 
   console.log('Current head sha is:', headSha)
