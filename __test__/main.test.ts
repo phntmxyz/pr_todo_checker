@@ -13,24 +13,24 @@ const __diff = `@@ -22,6 +22,14 @@ any text';
 - removed non todo line
 + added non todo line`
 
-const __prDiff = [
-  {
-    sha: 'sha',
-    filename: 'filename',
-    status: 'modified',
-    additions: 8,
-    deletions: 2,
-    changes: 0,
-    blob_url: 'blob_url',
-    raw_url: 'raw_url',
-    contents_url: 'contents_url',
-    patch: __diff,
-    previous_filename: undefined
-  }
-] as PrDiff
-
 describe('extractTodos', () => {
   it('should correctly extract todos', () => {
+    const __prDiff = [
+      {
+        sha: 'sha',
+        filename: 'filename.js',
+        status: 'modified',
+        additions: 8,
+        deletions: 2,
+        changes: 0,
+        blob_url: 'blob_url',
+        raw_url: 'raw_url',
+        contents_url: 'contents_url',
+        patch: __diff,
+        previous_filename: undefined
+      }
+    ] as PrDiff
+
     const fileTodos = findTodos(__prDiff)
 
     const expectedTodos: FileTodos[] = [
@@ -50,6 +50,95 @@ describe('extractTodos', () => {
             line: 29,
             content: 'todo - removed comment with hashtag',
             isNew: false
+          }
+        ]
+      }
+    ]
+    expect(fileTodos).toEqual(expectedTodos)
+  })
+
+  it('should correctly exclude files', () => {
+    const __prDiff = [
+      {
+        sha: 'sha',
+        filename: 'filename.js',
+        status: 'modified',
+        additions: 1,
+        deletions: 0,
+        changes: 0,
+        blob_url: 'blob_url',
+        raw_url: 'raw_url',
+        contents_url: 'contents_url',
+        patch: `@@ -22,6 +22,14 @@ any text';
+          + // TODO - in filename js`,
+        previous_filename: undefined
+      },
+      {
+        sha: 'sha',
+        filename: 'filename.yml',
+        status: 'modified',
+        additions: 1,
+        deletions: 0,
+        changes: 0,
+        blob_url: 'blob_url',
+        raw_url: 'raw_url',
+        contents_url: 'contents_url',
+        patch: `@@ -22,6 +22,14 @@ any text';
+            + // TODO - in filename yml`,
+        previous_filename: undefined
+      },
+      {
+        sha: 'sha',
+        filename: 'excluded/filename.js',
+        status: 'modified',
+        additions: 1,
+        deletions: 0,
+        changes: 0,
+        blob_url: 'blob_url',
+        raw_url: 'raw_url',
+        contents_url: 'contents_url',
+        patch: `@@ -22,6 +22,14 @@ any text';
+              + // TODO - in excluded directory`,
+        previous_filename: undefined
+      },
+      {
+        sha: 'sha',
+        filename: 'included/other.txt',
+        status: 'modified',
+        additions: 1,
+        deletions: 0,
+        changes: 0,
+        blob_url: 'blob_url',
+        raw_url: 'raw_url',
+        contents_url: 'contents_url',
+        patch: `@@ -22,6 +22,14 @@ any text';
+                + // TODO - in included directory`,
+        previous_filename: undefined
+      }
+    ] as PrDiff
+
+    const exclude = ['**/*.yml', '**/excluded/*']
+
+    const fileTodos = findTodos(__prDiff, exclude)
+
+    const expectedTodos: FileTodos[] = [
+      {
+        filename: 'filename.js',
+        todos: [
+          {
+            line: 22,
+            content: 'TODO - in filename js',
+            isNew: true
+          }
+        ]
+      },
+      {
+        filename: 'included/other.txt',
+        todos: [
+          {
+            line: 22,
+            content: 'TODO - in included directory',
+            isNew: true
           }
         ]
       }

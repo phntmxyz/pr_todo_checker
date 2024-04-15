@@ -45,6 +45,10 @@ comments found.
 
 You can configure the action further by providing inputs:
 
+- `token`: The GitHub token to use for commenting on the PR. This is required.
+- `exclude`: A list of glob patterns to exclude from the search. This is
+  optional.
+
 ```yaml
 steps:
   - name: Checkout
@@ -54,36 +58,7 @@ steps:
     uses: phntmxyz/todo-finder-action@v1
     with:
       token: ${{ secrets.GITHUB_TOKEN }}
-      base: main # PR base by default but you can use any git reference
-      head: pr-head # PR head by default but you can use any git reference
-```
-
-## Output
-
-The action outputs a comment with the list of new and removed TODOs in the pull
-request where the action was run. You can access this output in subsequent steps
-like so:
-
-```yaml
-steps:
-  - name: Checkout
-    id: checkout
-    uses: actions/checkout@v4
-
-  - name: Test Local Action
-    id: test-action
-    uses: ./
-    with:
-      token: ${{ secrets.GITHUB_TOKEN }}
-      base: e9e9b061034f705ecaaabf5ec30ad36f828603c2
-      head: main
-      use-output: true
-
-  - name: Print Added TODOs
-    id: output-new
-    run: echo "${{ steps.test-action.outputs.added-todos }}"
-
-  - name: Print Removed TODOs
-    id: output-old
-    run: echo "${{ steps.test-action.outputs.removed-todos }}"
+      exclude: |
+        *.md
+        **/config/*.yml
 ```

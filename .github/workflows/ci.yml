@@ -58,14 +58,4 @@ jobs:
         uses: ./
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          base: e9e9b061034f705ecaaabf5ec30ad36f828603c2
-          head: main
-          use-output: true
-
-      - name: Print Added TODOs
-        id: output-new
-        run: echo "${{ steps.test-action.outputs.added-todos }}"
-
-      - name: Print Removed TODOs
-        id: output-old
-        run: echo "${{ steps.test-action.outputs.removed-todos }}"
+          exclude: .github/*

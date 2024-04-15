@@ -6,6 +6,10 @@ inputs:
   token:
     description: 'GitHub token'
     required: true
+  exclude:
+    description:
+      'Exclude file patterns. User list of globs separated by new line.'
+    required: false
 
 runs:
   using: 'node20'

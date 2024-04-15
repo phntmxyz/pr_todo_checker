@@ -1,12 +1,16 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
 import { PrDiff, FileTodos, TodoItem } from './types'
+import { minimatch } from 'minimatch'
 
 export async function run(): Promise<void> {
   try {
     const token = core.getInput('token')
-    const octokit = github.getOctokit(token)
 
+    // Get the user's glbbing input and split it into an array of patterns
+    const excludePatterns = core.getInput('exclude').split('\n')
+
+    const octokit = github.getOctokit(token)
     const botName = 'github-actions[bot]'
     const pr = github.context.payload.pull_request
 
@@ -30,7 +34,7 @@ export async function run(): Promise<void> {
       }
       const prDiff = await getPrDiff(octokit, pr.base.sha, pr.head.sha)
 
-      const todos = findTodos(prDiff)
+      const todos = findTodos(prDiff, excludePatterns)
       console.log('Todos:', JSON.stringify(todos))
       await commentPr(octokit, pr.number, botName, todos)
     }
@@ -60,15 +64,18 @@ async function getPrDiff(
   return response?.data?.files || []
 }
 
-export function findTodos(prDiff: PrDiff): FileTodos[] {
+export function findTodos(prDiff: PrDiff, exclude: string[] = []): FileTodos[] {
   // Find first number in string
   const regex = /(\d+)/
 
   const fileTodos: FileTodos[] = prDiff
     .map(file => {
+      const excluded = exclude.some(pattern =>
+        minimatch(file.filename, pattern)
+      )
       const patch = file.patch
-      // TODO: Add support to ignore files
-      if (patch === undefined || file.filename.endsWith('.yml')) return
+
+      if (patch === undefined || excluded) return
 
       const lines = patch.split('\n')
       if (lines === undefined || lines.length === 0) return
@@ -87,7 +94,7 @@ export function findTodos(prDiff: PrDiff): FileTodos[] {
           return {
             line: startLineNumer + index,
             content: todo,
-            isNew: line.startsWith('+')
+            isNew: line.trim().startsWith('+')
           }
         })
         .filter((todo): todo is TodoItem => todo !== undefined)
