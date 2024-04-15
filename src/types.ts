@@ -19,13 +19,13 @@ export type PrDiff = {
   previous_filename?: string | undefined
 }[]
 
-export type Todo = {
+export type FileTodos = {
   filename: string
-  todos: InnerTodo[]
+  todos: TodoItem[]
 }
 
-export type InnerTodo = {
+export type TodoItem = {
   line: number
   content: string
-  added: boolean
+  isNew: boolean
 }

@@ -1,6 +1,6 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
-import { PrDiff, Todo, InnerTodo } from './types'
+import { PrDiff, FileTodos, TodoItem } from './types'
 
 export async function run(): Promise<void> {
   try {
@@ -60,13 +60,14 @@ async function getPrDiff(
   return response?.data?.files || []
 }
 
-export function findTodos(prDiff: PrDiff): Todo[] {
+export function findTodos(prDiff: PrDiff): FileTodos[] {
   // Find first number in string
   const regex = /(\d+)/
 
-  const todos: Todo[] = prDiff
+  const fileTodos: FileTodos[] = prDiff
     .map(file => {
       const patch = file.patch
+      // TODO: Add support to ignore files
       if (patch === undefined || file.filename.endsWith('.yml')) return
 
       const lines = patch.split('\n')
@@ -79,24 +80,24 @@ export function findTodos(prDiff: PrDiff): Todo[] {
       const startLineNumer = parseInt(match[0])
 
       // get all todos from the patch map them to the line number
-      const todos: InnerTodo[] = lines
+      const todoItems: TodoItem[] = lines
         .map((line, index) => {
           const todo = getTodoIfFound(line)
           if (todo === undefined) return
           return {
             line: startLineNumer + index,
             content: todo,
-            added: line.startsWith('+')
+            isNew: line.startsWith('+')
           }
         })
-        .filter((todo): todo is InnerTodo => todo !== undefined)
+        .filter((todo): todo is TodoItem => todo !== undefined)
 
-      if (todos.length == 0) return
+      if (todoItems.length === 0) return
 
-      return { filename: file.filename, todos: todos }
+      return { filename: file.filename, todos: todoItems }
     })
-    .filter((todo): todo is Todo => todo !== undefined)
-  return todos
+    .filter((todo): todo is FileTodos => todo !== undefined)
+  return fileTodos
 }
 
 function getTodoIfFound(line: string): string | undefined {
@@ -110,7 +111,7 @@ async function commentPr(
   octokit: ReturnType<typeof github.getOctokit>,
   prNumber: number,
   botName: string,
-  todos: Todo[]
+  fileTodos: FileTodos[]
 ): Promise<void> {
   const { owner, repo } = github.context.repo
   const issueNumber = github.context.payload.pull_request?.number
@@ -139,9 +140,8 @@ async function commentPr(
 
   console.log(`Add found todos as comments to PR #${prNumber}`)
 
-  for (const todo of todos) {
-    const addedTodos = todo.todos.filter(todo => todo.added)
-    const removedTodos = todo.todos.filter(todo => !todo.added)
+  for (const fileTodo of fileTodos) {
+    const addedTodos = fileTodo.todos.filter(todo => todo.isNew)
 
     for (const innerTodo of addedTodos) {
       await octokit.rest.pulls.createReviewComment({
@@ -150,24 +150,11 @@ async function commentPr(
         pull_number: prNumber,
         body: generateComment(innerTodo),
         commit_id: headSha,
-        path: todo.filename,
+        path: fileTodo.filename,
         side: 'RIGHT',
         line: innerTodo.line
       })
     }
-
-    // for (const innerTodo of removedTodos) {
-    //   await octokit.rest.pulls.createReviewComment({
-    //     owner,
-    //     repo,
-    //     pull_number: prNumber,
-    //     body: generateComment(innerTodo),
-    //     commit_id: headSha,
-    //     path: todo.filename,
-    //     side: 'LEFT',
-    //     line: innerTodo.line
-    //   })
-    // }
   }
 
   console.log('Current head sha is:', headSha)
@@ -180,15 +167,11 @@ async function commentPr(
   }
 }
 
-function sum(numbers: number[]): number {
-  return numbers.reduce((acc, curr) => acc + curr, 0)
-}
-
-function generateComment(todo: InnerTodo): string {
+function generateComment(todo: TodoItem): string {
   let comment =
     'A new Todo was found. If you want to fix it later on, mark it as ignore.\n'
   comment += `*${todo.content}*\n`
-  if (todo.added) {
+  if (todo.isNew) {
     comment += `- [ ] Ignore`
   } else {
     comment += `- [x] Ignore`
@@ -214,7 +197,7 @@ async function updateCommitStatus(
 
   let todoCount = 0
   let doneCount = 0
-  comments.forEach(comment => {
+  for (const comment of comments) {
     if (comment.user?.login === botName) {
       // Check if the comment contains a markdown checkbox which is checked
       const matches = comment.body?.match(/- \[x\]/gi)
@@ -228,7 +211,7 @@ async function updateCommitStatus(
         todoCount += 1
       }
     }
-  })
+  }
 
   // Update the commit status
   await createCommitStatus(octokit, doneCount, todoCount)
@@ -249,7 +232,7 @@ async function createCommitStatus(
       owner,
       repo,
       sha: headSha,
-      state: state,
+      state,
       description: `${doneCount}/${todoCount} TODOs solved`,
       context: 'TODO Finder'
     })

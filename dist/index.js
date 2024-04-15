@@ -29070,9 +29070,10 @@ function getPrDiff(octokit, base, head) {
 function findTodos(prDiff) {
     // Find first number in string
     const regex = /(\d+)/;
-    const todos = prDiff
+    const fileTodos = prDiff
         .map(file => {
         const patch = file.patch;
+        // TODO: Add support to ignore files
         if (patch === undefined || file.filename.endsWith('.yml'))
             return;
         const lines = patch.split('\n');
@@ -29085,7 +29086,7 @@ function findTodos(prDiff) {
             return;
         const startLineNumer = parseInt(match[0]);
         // get all todos from the patch map them to the line number
-        const todos = lines
+        const todoItems = lines
             .map((line, index) => {
             const todo = getTodoIfFound(line);
             if (todo === undefined)
@@ -29093,16 +29094,16 @@ function findTodos(prDiff) {
             return {
                 line: startLineNumer + index,
                 content: todo,
-                added: line.startsWith('+')
+                isNew: line.startsWith('+')
             };
         })
             .filter((todo) => todo !== undefined);
-        if (todos.length == 0)
+        if (todoItems.length === 0)
             return;
-        return { filename: file.filename, todos: todos };
+        return { filename: file.filename, todos: todoItems };
     })
         .filter((todo) => todo !== undefined);
-    return todos;
+    return fileTodos;
 }
 exports.findTodos = findTodos;
 function getTodoIfFound(line) {
@@ -29112,7 +29113,7 @@ function getTodoIfFound(line) {
         return;
     return match[1];
 }
-function commentPr(octokit, prNumber, botName, todos) {
+function commentPr(octokit, prNumber, botName, fileTodos) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a, _b, _c;
         const { owner, repo } = github.context.repo;
@@ -29138,9 +29139,8 @@ function commentPr(octokit, prNumber, botName, todos) {
             }
         }
         console.log(`Add found todos as comments to PR #${prNumber}`);
-        for (const todo of todos) {
-            const addedTodos = todo.todos.filter(todo => todo.added);
-            const removedTodos = todo.todos.filter(todo => !todo.added);
+        for (const fileTodo of fileTodos) {
+            const addedTodos = fileTodo.todos.filter(todo => todo.isNew);
             for (const innerTodo of addedTodos) {
                 yield octokit.rest.pulls.createReviewComment({
                     owner,
@@ -29148,23 +29148,11 @@ function commentPr(octokit, prNumber, botName, todos) {
                     pull_number: prNumber,
                     body: generateComment(innerTodo),
                     commit_id: headSha,
-                    path: todo.filename,
+                    path: fileTodo.filename,
                     side: 'RIGHT',
                     line: innerTodo.line
                 });
             }
-            // for (const innerTodo of removedTodos) {
-            //   await octokit.rest.pulls.createReviewComment({
-            //     owner,
-            //     repo,
-            //     pull_number: prNumber,
-            //     body: generateComment(innerTodo),
-            //     commit_id: headSha,
-            //     path: todo.filename,
-            //     side: 'LEFT',
-            //     line: innerTodo.line
-            //   })
-            // }
         }
         console.log('Current head sha is:', headSha);
         try {
@@ -29176,13 +29164,10 @@ function commentPr(octokit, prNumber, botName, todos) {
         }
     });
 }
-function sum(numbers) {
-    return numbers.reduce((acc, curr) => acc + curr, 0);
-}
 function generateComment(todo) {
     let comment = 'A new Todo was found. If you want to fix it later on, mark it as ignore.\n';
     comment += `*${todo.content}*\n`;
-    if (todo.added) {
+    if (todo.isNew) {
         comment += `- [ ] Ignore`;
     }
     else {
@@ -29193,6 +29178,7 @@ function generateComment(todo) {
 }
 function updateCommitStatus(octokit, prNumber, botName) {
     return __awaiter(this, void 0, void 0, function* () {
+        var _a, _b, _c;
         const { owner, repo } = github.context.repo;
         // Get all comments on the pull request
         const { data: comments } = yield octokit.rest.pulls.listReviewComments({
@@ -29203,8 +29189,7 @@ function updateCommitStatus(octokit, prNumber, botName) {
         console.log('Found comments:', comments.length);
         let todoCount = 0;
         let doneCount = 0;
-        comments.forEach(comment => {
-            var _a, _b, _c;
+        for (const comment of comments) {
             if (((_a = comment.user) === null || _a === void 0 ? void 0 : _a.login) === botName) {
                 // Check if the comment contains a markdown checkbox which is checked
                 const matches = (_b = comment.body) === null || _b === void 0 ? void 0 : _b.match(/- \[x\]/gi);
@@ -29218,7 +29203,7 @@ function updateCommitStatus(octokit, prNumber, botName) {
                     todoCount += 1;
                 }
             }
-        });
+        }
         // Update the commit status
         yield createCommitStatus(octokit, doneCount, todoCount);
     });
@@ -29234,7 +29219,7 @@ function createCommitStatus(octokit, doneCount, todoCount) {
                 owner,
                 repo,
                 sha: headSha,
-                state: state,
+                state,
                 description: `${doneCount}/${todoCount} TODOs solved`,
                 context: 'TODO Finder'
             });
