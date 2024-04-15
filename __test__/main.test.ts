@@ -35,7 +35,7 @@ describe('extractTodos', () => {
 
     const expectedTodos: FileTodos[] = [
       {
-        filename: 'filename',
+        filename: 'filename.js',
         todos: [
           {
             line: 22,
