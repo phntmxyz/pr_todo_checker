@@ -1,5 +1,5 @@
 import { findTodos } from '../src/main' // replace with the actual path to the function
-import { FileTodos, PrDiff } from '../src/types'
+import { TodoItem, PrDiff } from '../src/types'
 
 const __diff = `@@ -22,6 +22,14 @@ any text';
 + any text before   //       TODO - upper case with much space
@@ -33,25 +33,42 @@ describe('extractTodos', () => {
 
     const fileTodos = findTodos(__prDiff)
 
-    const expectedTodos: FileTodos[] = [
+    const expectedTodos: TodoItem[] = [
       {
         filename: 'filename.js',
-        todos: [
-          {
-            line: 22,
-            content: 'TODO - upper case with much space',
-            isNew: true
-          },
-          { line: 23, content: 'todo - lower case with space', isNew: true },
-          { line: 24, content: 'todo - lower case no space', isNew: true },
-          { line: 27, content: 'todo - In comment block', isNew: true },
-          { line: 28, content: 'todo - comment with hashtag', isNew: true },
-          {
-            line: 29,
-            content: 'todo - removed comment with hashtag',
-            isNew: false
-          }
-        ]
+        line: 22,
+        content: 'TODO - upper case with much space',
+        isNew: true
+      },
+      {
+        filename: 'filename.js',
+        line: 23,
+        content: 'todo - lower case with space',
+        isNew: true
+      },
+      {
+        filename: 'filename.js',
+        line: 24,
+        content: 'todo - lower case no space',
+        isNew: true
+      },
+      {
+        filename: 'filename.js',
+        line: 27,
+        content: 'todo - In comment block',
+        isNew: true
+      },
+      {
+        filename: 'filename.js',
+        line: 28,
+        content: 'todo - comment with hashtag',
+        isNew: true
+      },
+      {
+        filename: 'filename.js',
+        line: 29,
+        content: 'todo - removed comment with hashtag',
+        isNew: false
       }
     ]
     expect(fileTodos).toEqual(expectedTodos)
@@ -121,26 +138,18 @@ describe('extractTodos', () => {
 
     const fileTodos = findTodos(__prDiff, exclude)
 
-    const expectedTodos: FileTodos[] = [
+    const expectedTodos: TodoItem[] = [
       {
         filename: 'filename.js',
-        todos: [
-          {
-            line: 22,
-            content: 'TODO - in filename js',
-            isNew: true
-          }
-        ]
+        line: 22,
+        content: 'TODO - in filename js',
+        isNew: true
       },
       {
         filename: 'included/other.txt',
-        todos: [
-          {
-            line: 22,
-            content: 'TODO - in included directory',
-            isNew: true
-          }
-        ]
+        line: 22,
+        content: 'TODO - in included directory',
+        isNew: true
       }
     ]
     expect(fileTodos).toEqual(expectedTodos)

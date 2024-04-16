@@ -1,6 +1,6 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
-import { PrDiff, FileTodos, TodoItem } from './types'
+import { PrDiff, TodoItem } from './types'
 import { minimatch } from 'minimatch'
 
 export async function run(): Promise<void> {
@@ -64,12 +64,12 @@ async function getPrDiff(
   return response?.data?.files || []
 }
 
-export function findTodos(prDiff: PrDiff, exclude: string[] = []): FileTodos[] {
+export function findTodos(prDiff: PrDiff, exclude: string[] = []): TodoItem[] {
   // Find first number in string
   const regex = /(\d+)/
 
-  const fileTodos: FileTodos[] = prDiff
-    .map(file => {
+  const todos: TodoItem[] = prDiff
+    .flatMap(file => {
       const excluded = exclude.some(pattern =>
         minimatch(file.filename, pattern)
       )
@@ -86,8 +86,6 @@ export function findTodos(prDiff: PrDiff, exclude: string[] = []): FileTodos[] {
       if (match === undefined || match === null || match?.length === 0) return
       const startLineNumer = parseInt(match[0])
 
-      console.log('Start line number:', startLineNumer)
-
       // get all todos from the patch map them to the line number
       let currentLine = startLineNumer
       const todoItems: TodoItem[] = lines
@@ -100,9 +98,10 @@ export function findTodos(prDiff: PrDiff, exclude: string[] = []): FileTodos[] {
             todo === undefined
               ? undefined
               : {
+                  filename: file.filename,
                   line: currentLine,
                   content: todo,
-                  isNew: line.trim().startsWith('+')
+                  isNew: !isDeleted
                 }
 
           if (isDeleted) {
@@ -117,10 +116,10 @@ export function findTodos(prDiff: PrDiff, exclude: string[] = []): FileTodos[] {
 
       if (todoItems.length === 0) return
 
-      return { filename: file.filename, todos: todoItems }
+      return todoItems
     })
-    .filter((todo): todo is FileTodos => todo !== undefined)
-  return fileTodos
+    .filter((todo): todo is TodoItem => todo !== undefined)
+  return todos
 }
 
 function getTodoIfFound(line: string): string | undefined {
@@ -134,7 +133,7 @@ async function commentPr(
   octokit: ReturnType<typeof github.getOctokit>,
   prNumber: number,
   botName: string,
-  fileTodos: FileTodos[]
+  todos: TodoItem[]
 ): Promise<void> {
   const { owner, repo } = github.context.repo
   const issueNumber = github.context.payload.pull_request?.number
@@ -149,35 +148,39 @@ async function commentPr(
     pull_number: prNumber
   })
 
-  // console.log(`Delete ${comments.length} comments`)
-  // // Delete all comments from the bot before adding new ones
-  // for (const comment of comments) {
-  //   if (comment.user?.login === botName) {
-  //     await octokit.rest.pulls.deleteReviewComment({
-  //       owner,
-  //       repo,
-  //       comment_id: comment.id
-  //     })
-  //   }
-  // }
+  const addedTodos = todos.filter(todo => todo.isNew)
+
+  const existingTodosWithComment: TodoItem[] = []
+  for (const comment of comments) {
+    for (const todo of addedTodos) {
+      if (
+        comment.path === todo.filename &&
+        comment.line === todo.line &&
+        comment.user?.login === botName
+      ) {
+        existingTodosWithComment.push(todo)
+      }
+    }
+  }
+  console.log(`Found ${existingTodosWithComment.length} existing Todos`)
+
+  const newTodos = addedTodos.filter(
+    todo => !existingTodosWithComment.includes(todo)
+  )
+  console.log(`Found ${newTodos.length} new Todos`)
 
   console.log(`Add found todos as comments to PR #${prNumber}`)
-
-  for (const fileTodo of fileTodos) {
-    const addedTodos = fileTodo.todos.filter(todo => todo.isNew)
-
-    for (const innerTodo of addedTodos) {
-      await octokit.rest.pulls.createReviewComment({
-        owner,
-        repo,
-        pull_number: prNumber,
-        body: generateComment(innerTodo),
-        commit_id: headSha,
-        path: fileTodo.filename,
-        side: 'RIGHT',
-        line: innerTodo.line
-      })
-    }
+  for (const todo of newTodos) {
+    await octokit.rest.pulls.createReviewComment({
+      owner,
+      repo,
+      pull_number: prNumber,
+      body: generateComment(todo),
+      commit_id: headSha,
+      path: todo.filename,
+      side: 'RIGHT',
+      line: todo.line
+    })
   }
 
   console.log('Current head sha is:', headSha)

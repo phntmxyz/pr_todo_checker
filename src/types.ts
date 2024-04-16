@@ -19,12 +19,8 @@ export type PrDiff = {
   previous_filename?: string | undefined
 }[]
 
-export type FileTodos = {
-  filename: string
-  todos: TodoItem[]
-}
-
 export type TodoItem = {
+  filename: string
   line: number
   content: string
   isNew: boolean

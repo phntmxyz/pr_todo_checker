@@ -29354,8 +29354,8 @@ function getPrDiff(octokit, base, head) {
 function findTodos(prDiff, exclude = []) {
     // Find first number in string
     const regex = /(\d+)/;
-    const fileTodos = prDiff
-        .map(file => {
+    const todos = prDiff
+        .flatMap(file => {
         const excluded = exclude.some(pattern => (0, minimatch_1.minimatch)(file.filename, pattern));
         const patch = file.patch;
         if (patch === undefined || excluded)
@@ -29369,7 +29369,6 @@ function findTodos(prDiff, exclude = []) {
         if (match === undefined || match === null || (match === null || match === void 0 ? void 0 : match.length) === 0)
             return;
         const startLineNumer = parseInt(match[0]);
-        console.log('Start line number:', startLineNumer);
         // get all todos from the patch map them to the line number
         let currentLine = startLineNumer;
         const todoItems = lines
@@ -29379,9 +29378,10 @@ function findTodos(prDiff, exclude = []) {
             const todoItem = todo === undefined
                 ? undefined
                 : {
+                    filename: file.filename,
                     line: currentLine,
                     content: todo,
-                    isNew: line.trim().startsWith('+')
+                    isNew: !isDeleted
                 };
             if (isDeleted) {
                 currentLine -= 1;
@@ -29394,10 +29394,10 @@ function findTodos(prDiff, exclude = []) {
             .filter((todo) => todo !== undefined);
         if (todoItems.length === 0)
             return;
-        return { filename: file.filename, todos: todoItems };
+        return todoItems;
     })
         .filter((todo) => todo !== undefined);
-    return fileTodos;
+    return todos;
 }
 exports.findTodos = findTodos;
 function getTodoIfFound(line) {
@@ -29407,9 +29407,9 @@ function getTodoIfFound(line) {
         return;
     return match[1];
 }
-function commentPr(octokit, prNumber, botName, fileTodos) {
+function commentPr(octokit, prNumber, botName, todos) {
     return __awaiter(this, void 0, void 0, function* () {
-        var _a, _b;
+        var _a, _b, _c;
         const { owner, repo } = github.context.repo;
         const issueNumber = (_a = github.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.number;
         const headSha = (_b = github.context.payload.pull_request) === null || _b === void 0 ? void 0 : _b.head.sha;
@@ -29421,32 +29421,32 @@ function commentPr(octokit, prNumber, botName, fileTodos) {
             repo,
             pull_number: prNumber
         });
-        // console.log(`Delete ${comments.length} comments`)
-        // // Delete all comments from the bot before adding new ones
-        // for (const comment of comments) {
-        //   if (comment.user?.login === botName) {
-        //     await octokit.rest.pulls.deleteReviewComment({
-        //       owner,
-        //       repo,
-        //       comment_id: comment.id
-        //     })
-        //   }
-        // }
-        console.log(`Add found todos as comments to PR #${prNumber}`);
-        for (const fileTodo of fileTodos) {
-            const addedTodos = fileTodo.todos.filter(todo => todo.isNew);
-            for (const innerTodo of addedTodos) {
-                yield octokit.rest.pulls.createReviewComment({
-                    owner,
-                    repo,
-                    pull_number: prNumber,
-                    body: generateComment(innerTodo),
-                    commit_id: headSha,
-                    path: fileTodo.filename,
-                    side: 'RIGHT',
-                    line: innerTodo.line
-                });
+        const addedTodos = todos.filter(todo => todo.isNew);
+        const existingTodosWithComment = [];
+        for (const comment of comments) {
+            for (const todo of addedTodos) {
+                if (comment.path === todo.filename &&
+                    comment.line === todo.line &&
+                    ((_c = comment.user) === null || _c === void 0 ? void 0 : _c.login) === botName) {
+                    existingTodosWithComment.push(todo);
+                }
             }
+        }
+        console.log(`Found ${existingTodosWithComment.length} existing Todos`);
+        const newTodos = addedTodos.filter(todo => !existingTodosWithComment.includes(todo));
+        console.log(`Found ${newTodos.length} new Todos`);
+        console.log(`Add found todos as comments to PR #${prNumber}`);
+        for (const todo of newTodos) {
+            yield octokit.rest.pulls.createReviewComment({
+                owner,
+                repo,
+                pull_number: prNumber,
+                body: generateComment(todo),
+                commit_id: headSha,
+                path: todo.filename,
+                side: 'RIGHT',
+                line: todo.line
+            });
         }
         console.log('Current head sha is:', headSha);
         try {
