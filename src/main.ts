@@ -18,7 +18,9 @@ export async function run(): Promise<void> {
       throw new Error('Action can only be run on pull requests')
     }
 
-    const isCommentChange = github.context.payload.action === 'edited'
+    const isCommentChange =
+      github.context.payload.action === 'edited' ||
+      github.context.payload.action === 'deleted'
     const user = github.context.payload.comment?.user?.login
 
     console.log('Is comment change:', isCommentChange)

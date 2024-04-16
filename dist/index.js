@@ -29308,7 +29308,8 @@ function run() {
             if (!pr || !pr.number) {
                 throw new Error('Action can only be run on pull requests');
             }
-            const isCommentChange = github.context.payload.action === 'edited';
+            const isCommentChange = github.context.payload.action === 'edited' ||
+                github.context.payload.action === 'deleted';
             const user = (_b = (_a = github.context.payload.comment) === null || _a === void 0 ? void 0 : _a.user) === null || _b === void 0 ? void 0 : _b.login;
             console.log('Is comment change:', isCommentChange);
             // Check if a comment, added by the bot, was edited. If so, update the commit status
