@@ -206,6 +206,8 @@ async function updateCommitStatus(
   let doneCount = 0
   for (const comment of comments) {
     if (comment.user?.login === botName) {
+      console.log('Comment:', comment.line, comment.body)
+
       // Check if the comment contains a markdown checkbox which is checked
       const matches = comment.body?.match(/- \[x\]/gi)
       if (matches) {
