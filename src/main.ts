@@ -144,22 +144,32 @@ async function commentPr(
   if (!issueNumber) throw new Error('Issue number not found')
 
   // Get all comments on the pull request
-  const { data: comments } = await octokit.rest.pulls.listReviewComments({
+  const { data: allComments } = await octokit.rest.pulls.listReviewComments({
     owner,
     repo,
     pull_number: prNumber
   })
 
+  const botComments = allComments.filter(
+    comment => comment.user?.login === botName
+  )
+
   const addedTodos = todos.filter(todo => todo.isNew)
 
   const existingTodosWithComment: TodoItem[] = []
-  for (const comment of comments) {
+  for (const comment of botComments) {
+    // If position is null or undefined, the comment is outdated and should be deleted
+    if (comment.position === null || comment.position === undefined) {
+      await octokit.rest.pulls.deleteReviewComment({
+        owner,
+        repo,
+        comment_id: comment.id
+      })
+      continue
+    }
+
     for (const todo of addedTodos) {
-      if (
-        comment.path === todo.filename &&
-        comment.line === todo.line &&
-        comment.user?.login === botName
-      ) {
+      if (comment.path === todo.filename && comment.line === todo.line) {
         existingTodosWithComment.push(todo)
       }
     }

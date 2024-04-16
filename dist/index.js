@@ -29410,25 +29410,33 @@ function getTodoIfFound(line) {
 }
 function commentPr(octokit, prNumber, botName, todos) {
     return __awaiter(this, void 0, void 0, function* () {
-        var _a, _b, _c;
+        var _a, _b;
         const { owner, repo } = github.context.repo;
         const issueNumber = (_a = github.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.number;
         const headSha = (_b = github.context.payload.pull_request) === null || _b === void 0 ? void 0 : _b.head.sha;
         if (!issueNumber)
             throw new Error('Issue number not found');
         // Get all comments on the pull request
-        const { data: comments } = yield octokit.rest.pulls.listReviewComments({
+        const { data: allComments } = yield octokit.rest.pulls.listReviewComments({
             owner,
             repo,
             pull_number: prNumber
         });
+        const botComments = allComments.filter(comment => { var _a; return ((_a = comment.user) === null || _a === void 0 ? void 0 : _a.login) === botName; });
         const addedTodos = todos.filter(todo => todo.isNew);
         const existingTodosWithComment = [];
-        for (const comment of comments) {
+        for (const comment of botComments) {
+            // If position is null or undefined, the comment is outdated and should be deleted
+            if (comment.position === null || comment.position === undefined) {
+                yield octokit.rest.pulls.deleteReviewComment({
+                    owner,
+                    repo,
+                    comment_id: comment.id
+                });
+                continue;
+            }
             for (const todo of addedTodos) {
-                if (comment.path === todo.filename &&
-                    comment.line === todo.line &&
-                    ((_c = comment.user) === null || _c === void 0 ? void 0 : _c.login) === botName) {
+                if (comment.path === todo.filename && comment.line === todo.line) {
                     existingTodosWithComment.push(todo);
                 }
             }
