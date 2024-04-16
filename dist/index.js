@@ -29399,7 +29399,7 @@ function getTodoIfFound(line) {
 }
 function commentPr(octokit, prNumber, botName, fileTodos) {
     return __awaiter(this, void 0, void 0, function* () {
-        var _a, _b, _c;
+        var _a, _b;
         const { owner, repo } = github.context.repo;
         const issueNumber = (_a = github.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.number;
         const headSha = (_b = github.context.payload.pull_request) === null || _b === void 0 ? void 0 : _b.head.sha;
@@ -29411,17 +29411,17 @@ function commentPr(octokit, prNumber, botName, fileTodos) {
             repo,
             pull_number: prNumber
         });
-        console.log(`Delete ${comments.length} comments`);
-        // Delete all comments from the bot before adding new ones
-        for (const comment of comments) {
-            if (((_c = comment.user) === null || _c === void 0 ? void 0 : _c.login) === botName) {
-                yield octokit.rest.pulls.deleteReviewComment({
-                    owner,
-                    repo,
-                    comment_id: comment.id
-                });
-            }
-        }
+        // console.log(`Delete ${comments.length} comments`)
+        // // Delete all comments from the bot before adding new ones
+        // for (const comment of comments) {
+        //   if (comment.user?.login === botName) {
+        //     await octokit.rest.pulls.deleteReviewComment({
+        //       owner,
+        //       repo,
+        //       comment_id: comment.id
+        //     })
+        //   }
+        // }
         console.log(`Add found todos as comments to PR #${prNumber}`);
         for (const fileTodo of fileTodos) {
             const addedTodos = fileTodo.todos.filter(todo => todo.isNew);

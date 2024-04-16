@@ -133,17 +133,17 @@ async function commentPr(
     pull_number: prNumber
   })
 
-  console.log(`Delete ${comments.length} comments`)
-  // Delete all comments from the bot before adding new ones
-  for (const comment of comments) {
-    if (comment.user?.login === botName) {
-      await octokit.rest.pulls.deleteReviewComment({
-        owner,
-        repo,
-        comment_id: comment.id
-      })
-    }
-  }
+  // console.log(`Delete ${comments.length} comments`)
+  // // Delete all comments from the bot before adding new ones
+  // for (const comment of comments) {
+  //   if (comment.user?.login === botName) {
+  //     await octokit.rest.pulls.deleteReviewComment({
+  //       owner,
+  //       repo,
+  //       comment_id: comment.id
+  //     })
+  //   }
+  // }
 
   console.log(`Add found todos as comments to PR #${prNumber}`)
 
