@@ -89,15 +89,29 @@ export function findTodos(prDiff: PrDiff, exclude: string[] = []): FileTodos[] {
       console.log('Start line number:', startLineNumer)
 
       // get all todos from the patch map them to the line number
+      let currentLine = startLineNumer
       const todoItems: TodoItem[] = lines
-        .map((line, index) => {
+        .map(line => {
+          const isDeleted = line.trim().startsWith('-')
+
           const todo = getTodoIfFound(line)
-          if (todo === undefined) return
-          return {
-            line: startLineNumer + index,
-            content: todo,
-            isNew: line.trim().startsWith('+')
+
+          const todoItem: TodoItem | undefined =
+            todo === undefined
+              ? undefined
+              : {
+                  line: currentLine,
+                  content: todo,
+                  isNew: line.trim().startsWith('+')
+                }
+
+          if (isDeleted) {
+            currentLine -= 1
+          } else {
+            currentLine += 1
           }
+
+          return todoItem
         })
         .filter((todo): todo is TodoItem => todo !== undefined)
 
