@@ -86,6 +86,8 @@ export function findTodos(prDiff: PrDiff, exclude: string[] = []): FileTodos[] {
       if (match === undefined || match === null || match?.length === 0) return
       const startLineNumer = parseInt(match[0])
 
+      console.log('Start line number:', startLineNumer)
+
       // get all todos from the patch map them to the line number
       const todoItems: TodoItem[] = lines
         .map((line, index) => {

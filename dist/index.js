@@ -29369,6 +29369,7 @@ function findTodos(prDiff, exclude = []) {
         if (match === undefined || match === null || (match === null || match === void 0 ? void 0 : match.length) === 0)
             return;
         const startLineNumer = parseInt(match[0]);
+        console.log('Start line number:', startLineNumer);
         // get all todos from the patch map them to the line number
         const todoItems = lines
             .map((line, index) => {
