@@ -9,6 +9,9 @@ export async function run(): Promise<void> {
 
     // Get the user's glbbing input and split it into an array of patterns
     const excludePatterns = core.getInput('exclude').split('\n')
+    const commentOnTodo = core.getInput('comment_on_todo') === 'true'
+    const commentBodyTemplate = core.getInput('comment_body')
+    const commentCheckboxTemplate = core.getInput('comment_checkbox')
 
     const octokit = github.getOctokit(token)
     const botName = 'github-actions[bot]'
@@ -30,12 +33,19 @@ export async function run(): Promise<void> {
       console.log('User:', user)
       console.log('Comment change detected')
       await updateCommitStatus(octokit, pr.number, botName)
-    } else {
+    } else if (commentOnTodo) {
       const prDiff = await getPrDiff(octokit, pr.base.sha, pr.head.sha)
 
       const todos = findTodos(prDiff, excludePatterns)
       console.log('Todos:', JSON.stringify(todos))
-      await commentPr(octokit, pr.number, botName, todos)
+      await commentPr(
+        octokit,
+        pr.number,
+        botName,
+        todos,
+        commentBodyTemplate,
+        commentCheckboxTemplate
+      )
     }
   } catch (error) {
     if (error instanceof Error) {
@@ -67,7 +77,9 @@ async function commentPr(
   octokit: ReturnType<typeof github.getOctokit>,
   prNumber: number,
   botName: string,
-  todos: Todo[]
+  todos: Todo[],
+  commentBodyTemplate: string,
+  commentCheckboxTemplate: string
 ): Promise<void> {
   const { owner, repo } = github.context.repo
   const issueNumber = github.context.payload.pull_request?.number
@@ -119,7 +131,7 @@ async function commentPr(
       owner,
       repo,
       pull_number: prNumber,
-      body: generateComment(todo),
+      body: generateComment(commentBodyTemplate, commentCheckboxTemplate, todo),
       commit_id: headSha,
       path: todo.filename,
       side: 'RIGHT',

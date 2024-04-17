@@ -10,6 +10,23 @@ inputs:
     description:
       'Exclude file patterns. User list of globs separated by new line.'
     required: false
+  comment_on_todo:
+    description: 'Comment on the TODO in the PR'
+    required: false
+    default: 'true'
+  comment_body:
+    description:
+      'Comment body to use when a TODO is found. Use {todo} to insert the TODO
+      message.'
+    required: false
+    default: "A new Todo was discovered. If it is not a priority right now,\
+      consider marking it for later attention.\n{todo}\n"
+  comment_checkbox:
+    description:
+      'Checkbox message to ignore the TODO. Use {todo} to insert the TODO
+      message.'
+    required: false
+    default: 'Ignore'
 
 runs:
   using: 'node20'

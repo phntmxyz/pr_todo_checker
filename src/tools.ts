@@ -55,14 +55,17 @@ function getTodoIfFound(line: string): string | undefined {
   return match[1]
 }
 
-export function generateComment(todo: Todo): string {
-  let comment =
-    'A new Todo was found. If you want to fix it later on, mark it as ignore.\n'
-  comment += `*${todo.content}*\n`
+export function generateComment(
+  bodyTemplate: string,
+  checkboxTemplate: string,
+  todo: Todo
+): string {
+  let comment = bodyTemplate.replace('{todo}', todo.content)
+  comment += '\n'
   if (todo.isAdded) {
-    comment += `- [ ] Ignore`
+    comment += `- [ ] ${checkboxTemplate.replace('{todo}', todo.content)}`
   } else {
-    comment += `- [x] Ignore`
+    comment += `- [x] ${checkboxTemplate.replace('{todo}', todo.content)}`
   }
   console.log(comment)
   return comment

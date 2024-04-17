@@ -29302,6 +29302,9 @@ function run() {
             const token = core.getInput('token');
             // Get the user's glbbing input and split it into an array of patterns
             const excludePatterns = core.getInput('exclude').split('\n');
+            const commentOnTodo = core.getInput('comment_on_todo') === 'true';
+            const commentBodyTemplate = core.getInput('comment_body');
+            const commentCheckboxTemplate = core.getInput('comment_checkbox');
             const octokit = github.getOctokit(token);
             const botName = 'github-actions[bot]';
             const pr = github.context.payload.pull_request;
@@ -29318,11 +29321,11 @@ function run() {
                 console.log('Comment change detected');
                 yield updateCommitStatus(octokit, pr.number, botName);
             }
-            else {
+            else if (commentOnTodo) {
                 const prDiff = yield getPrDiff(octokit, pr.base.sha, pr.head.sha);
                 const todos = (0, tools_1.findTodos)(prDiff, excludePatterns);
                 console.log('Todos:', JSON.stringify(todos));
-                yield commentPr(octokit, pr.number, botName, todos);
+                yield commentPr(octokit, pr.number, botName, todos, commentBodyTemplate, commentCheckboxTemplate);
             }
         }
         catch (error) {
@@ -29349,7 +29352,7 @@ function getPrDiff(octokit, base, head) {
         return ((_a = response === null || response === void 0 ? void 0 : response.data) === null || _a === void 0 ? void 0 : _a.files) || [];
     });
 }
-function commentPr(octokit, prNumber, botName, todos) {
+function commentPr(octokit, prNumber, botName, todos, commentBodyTemplate, commentCheckboxTemplate) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a, _b;
         const { owner, repo } = github.context.repo;
@@ -29391,7 +29394,7 @@ function commentPr(octokit, prNumber, botName, todos) {
                 owner,
                 repo,
                 pull_number: prNumber,
-                body: (0, tools_1.generateComment)(todo),
+                body: (0, tools_1.generateComment)(commentBodyTemplate, commentCheckboxTemplate, todo),
                 commit_id: headSha,
                 path: todo.filename,
                 side: 'RIGHT',
@@ -29526,14 +29529,14 @@ function getTodoIfFound(line) {
         return;
     return match[1];
 }
-function generateComment(todo) {
-    let comment = 'A new Todo was found. If you want to fix it later on, mark it as ignore.\n';
-    comment += `*${todo.content}*\n`;
+function generateComment(bodyTemplate, checkboxTemplate, todo) {
+    let comment = bodyTemplate.replace('{todo}', todo.content);
+    comment += '\n';
     if (todo.isAdded) {
-        comment += `- [ ] Ignore`;
+        comment += `- [ ] ${checkboxTemplate.replace('{todo}', todo.content)}`;
     }
     else {
-        comment += `- [x] Ignore`;
+        comment += `- [x] ${checkboxTemplate.replace('{todo}', todo.content)}`;
     }
     console.log(comment);
     return comment;

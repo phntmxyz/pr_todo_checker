@@ -48,8 +48,13 @@ comments found.
 You can configure the action further by providing inputs:
 
 - `token`: The GitHub token to use for commenting on the PR. This is required.
-- `exclude`: A list of glob patterns to exclude from the search. This is
-  optional.
+- `exclude`: (**optional**) A list of glob patterns to exclude from the search.
+- `comment_on_todo`: (**optional**) Whether to comment on the PR with the TODOs
+  found. Default is `true`.
+- `comment_body`: (**optional**) The body of the comment to post on the PR. Use
+  `{todo}` to insert the Todo content.
+- `comment_checkbox`: (**optional**) The text to use for the checkbox in the
+  comment. Use `{todo}` to insert the Todo content
 
 ```yaml
 steps:
@@ -63,4 +68,8 @@ steps:
       exclude: |
         *.md
         **/config/*.yml
+      comment_on_todo: true
+      comment_body: |
+        'A new Todo was discovered. If it is not a priority right now, consider marking it for later attention.\n{todo}\n'
+      comment_checkbox: 'Ignore'
 ```
