@@ -21,6 +21,8 @@ To use this action in your workflow, add the following step:
 name: Check TODOs
 
 on:
+  pull_request_review_comment:
+    types: [edited, deleted]
   pull_request:
     types: [opened, synchronize, reopened]
 
