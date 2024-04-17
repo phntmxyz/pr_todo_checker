@@ -1,7 +1,7 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
 import { PrDiff, Todo } from './types'
-import { minimatch } from 'minimatch'
+import { findTodos, generateComment } from './tools'
 
 export async function run(): Promise<void> {
   try {
@@ -25,15 +25,15 @@ export async function run(): Promise<void> {
 
     console.log('Is comment change:', isCommentChange)
 
+    // Check if the user is the bot, if not, return
+    if (user !== botName) return
+
     // Check if a comment, added by the bot, was edited. If so, update the commit status
-    if (isCommentChange && user === botName) {
+    if (isCommentChange) {
       console.log('User:', user)
       console.log('Comment change detected')
       await updateCommitStatus(octokit, pr.number, botName)
     } else {
-      if (!pr) {
-        throw new Error('This action can only be run on pull requests')
-      }
       const prDiff = await getPrDiff(octokit, pr.base.sha, pr.head.sha)
 
       const todos = findTodos(prDiff, excludePatterns)
@@ -64,60 +64,6 @@ async function getPrDiff(
   })
 
   return response?.data?.files || []
-}
-
-export function findTodos(prDiff: PrDiff, exclude: string[] = []): Todo[] {
-  // Find first number in string
-  const regex = /(\d+)/
-
-  const todos: Todo[] = []
-
-  for (const file of prDiff) {
-    const excluded = exclude.some(pattern => minimatch(file.filename, pattern))
-    const patch = file.patch
-
-    if (patch === undefined || excluded) continue
-
-    const lines = patch.split('\n')
-    if (lines === undefined || lines.length === 0) continue
-
-    // remove first line and get the line number where the patch starts
-    const firstLine = lines.shift()
-    const match = firstLine?.match(regex)
-    if (match === undefined || match === null || match?.length === 0) continue
-    const startLineNumer = parseInt(match[0])
-
-    // get all todos from the patch map them to the line number
-    let currentLine = startLineNumer
-    for (const line of lines) {
-      const isDeleted = line.startsWith('-')
-
-      const todo = getTodoIfFound(line)
-
-      if (todo !== undefined) {
-        todos.push({
-          filename: file.filename,
-          line: currentLine,
-          content: todo,
-          isAdded: !isDeleted
-        })
-      }
-
-      if (isDeleted) {
-        currentLine -= 1
-      } else {
-        currentLine += 1
-      }
-    }
-  }
-  return todos
-}
-
-function getTodoIfFound(line: string): string | undefined {
-  const regex = /[/*#]+.*(TODO.*|FIXME.*)/i
-  const match = line.match(regex)
-  if (match === undefined || match === null || match?.length === 0) return
-  return match[1]
 }
 
 async function commentPr(
@@ -192,19 +138,6 @@ async function commentPr(
   } catch (error) {
     console.log('Error creating commit status', error)
   }
-}
-
-function generateComment(todo: Todo): string {
-  let comment =
-    'A new Todo was found. If you want to fix it later on, mark it as ignore.\n'
-  comment += `*${todo.content}*\n`
-  if (todo.isAdded) {
-    comment += `- [ ] Ignore`
-  } else {
-    comment += `- [x] Ignore`
-  }
-  console.log(comment)
-  return comment
 }
 
 async function updateCommitStatus(

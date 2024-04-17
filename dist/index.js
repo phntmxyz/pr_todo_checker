@@ -29291,10 +29291,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.findTodos = exports.run = void 0;
+exports.run = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
-const minimatch_1 = __nccwpck_require__(4501);
+const tools_1 = __nccwpck_require__(5905);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         var _a, _b;
@@ -29312,18 +29312,18 @@ function run() {
                 github.context.payload.action === 'deleted';
             const user = (_b = (_a = github.context.payload.comment) === null || _a === void 0 ? void 0 : _a.user) === null || _b === void 0 ? void 0 : _b.login;
             console.log('Is comment change:', isCommentChange);
+            // Check if the user is the bot, if not, return
+            if (user !== botName)
+                return;
             // Check if a comment, added by the bot, was edited. If so, update the commit status
-            if (isCommentChange && user === botName) {
+            if (isCommentChange) {
                 console.log('User:', user);
                 console.log('Comment change detected');
                 yield updateCommitStatus(octokit, pr.number, botName);
             }
             else {
-                if (!pr) {
-                    throw new Error('This action can only be run on pull requests');
-                }
                 const prDiff = yield getPrDiff(octokit, pr.base.sha, pr.head.sha);
-                const todos = findTodos(prDiff, excludePatterns);
+                const todos = (0, tools_1.findTodos)(prDiff, excludePatterns);
                 console.log('Todos:', JSON.stringify(todos));
                 yield commentPr(octokit, pr.number, botName, todos);
             }
@@ -29352,55 +29352,6 @@ function getPrDiff(octokit, base, head) {
         return ((_a = response === null || response === void 0 ? void 0 : response.data) === null || _a === void 0 ? void 0 : _a.files) || [];
     });
 }
-function findTodos(prDiff, exclude = []) {
-    // Find first number in string
-    const regex = /(\d+)/;
-    const todos = [];
-    for (const file of prDiff) {
-        const excluded = exclude.some(pattern => (0, minimatch_1.minimatch)(file.filename, pattern));
-        const patch = file.patch;
-        if (patch === undefined || excluded)
-            continue;
-        const lines = patch.split('\n');
-        if (lines === undefined || lines.length === 0)
-            continue;
-        // remove first line and get the line number where the patch starts
-        const firstLine = lines.shift();
-        const match = firstLine === null || firstLine === void 0 ? void 0 : firstLine.match(regex);
-        if (match === undefined || match === null || (match === null || match === void 0 ? void 0 : match.length) === 0)
-            continue;
-        const startLineNumer = parseInt(match[0]);
-        // get all todos from the patch map them to the line number
-        let currentLine = startLineNumer;
-        for (const line of lines) {
-            const isDeleted = line.startsWith('-');
-            const todo = getTodoIfFound(line);
-            if (todo !== undefined) {
-                todos.push({
-                    filename: file.filename,
-                    line: currentLine,
-                    content: todo,
-                    isNew: !isDeleted
-                });
-            }
-            if (isDeleted) {
-                currentLine -= 1;
-            }
-            else {
-                currentLine += 1;
-            }
-        }
-    }
-    return todos;
-}
-exports.findTodos = findTodos;
-function getTodoIfFound(line) {
-    const regex = /[/*#]+.*(TODO.*|FIXME.*)/i;
-    const match = line.match(regex);
-    if (match === undefined || match === null || (match === null || match === void 0 ? void 0 : match.length) === 0)
-        return;
-    return match[1];
-}
 function commentPr(octokit, prNumber, botName, todos) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a, _b;
@@ -29416,7 +29367,7 @@ function commentPr(octokit, prNumber, botName, todos) {
             pull_number: prNumber
         });
         const botComments = allComments.filter(comment => { var _a; return ((_a = comment.user) === null || _a === void 0 ? void 0 : _a.login) === botName; });
-        const addedTodos = todos.filter(todo => todo.isNew);
+        const addedTodos = todos.filter(todo => todo.isAdded);
         const existingTodosWithComment = [];
         for (const comment of botComments) {
             // If position is null or undefined, the comment is outdated and should be deleted
@@ -29443,7 +29394,7 @@ function commentPr(octokit, prNumber, botName, todos) {
                 owner,
                 repo,
                 pull_number: prNumber,
-                body: generateComment(todo),
+                body: (0, tools_1.generateComment)(todo),
                 commit_id: headSha,
                 path: todo.filename,
                 side: 'RIGHT',
@@ -29459,18 +29410,6 @@ function commentPr(octokit, prNumber, botName, todos) {
             console.log('Error creating commit status', error);
         }
     });
-}
-function generateComment(todo) {
-    let comment = 'A new Todo was found. If you want to fix it later on, mark it as ignore.\n';
-    comment += `*${todo.content}*\n`;
-    if (todo.isNew) {
-        comment += `- [ ] Ignore`;
-    }
-    else {
-        comment += `- [x] Ignore`;
-    }
-    console.log(comment);
-    return comment;
 }
 function updateCommitStatus(octokit, prNumber, botName) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -29529,6 +29468,80 @@ function createCommitStatus(octokit, doneCount, todoCount) {
         }
     });
 }
+
+
+/***/ }),
+
+/***/ 5905:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.generateComment = exports.findTodos = void 0;
+const minimatch_1 = __nccwpck_require__(4501);
+function findTodos(prDiff, exclude = []) {
+    // Find first number in string
+    const regex = /(\d+)/;
+    const todos = [];
+    for (const file of prDiff) {
+        const excluded = exclude.some(pattern => (0, minimatch_1.minimatch)(file.filename, pattern));
+        const patch = file.patch;
+        if (patch === undefined || excluded)
+            continue;
+        const lines = patch.split('\n');
+        if (lines === undefined || lines.length === 0)
+            continue;
+        // remove first line and get the line number where the patch starts
+        const firstLine = lines.shift();
+        const match = firstLine === null || firstLine === void 0 ? void 0 : firstLine.match(regex);
+        if (match === undefined || match === null || (match === null || match === void 0 ? void 0 : match.length) === 0)
+            continue;
+        const startLineNumer = parseInt(match[0]);
+        // get all todos from the patch map them to the line number
+        let currentLine = startLineNumer;
+        for (const line of lines) {
+            const isDeleted = line.startsWith('-');
+            const todo = getTodoIfFound(line);
+            if (todo !== undefined) {
+                todos.push({
+                    filename: file.filename,
+                    line: currentLine,
+                    content: todo,
+                    isAdded: !isDeleted
+                });
+            }
+            if (isDeleted) {
+                currentLine -= 1;
+            }
+            else {
+                currentLine += 1;
+            }
+        }
+    }
+    return todos;
+}
+exports.findTodos = findTodos;
+function getTodoIfFound(line) {
+    const regex = /[/*#]+.*(TODO.*|FIXME.*)/i;
+    const match = line.match(regex);
+    if (match === undefined || match === null || (match === null || match === void 0 ? void 0 : match.length) === 0)
+        return;
+    return match[1];
+}
+function generateComment(todo) {
+    let comment = 'A new Todo was found. If you want to fix it later on, mark it as ignore.\n';
+    comment += `*${todo.content}*\n`;
+    if (todo.isAdded) {
+        comment += `- [ ] Ignore`;
+    }
+    else {
+        comment += `- [x] Ignore`;
+    }
+    console.log(comment);
+    return comment;
+}
+exports.generateComment = generateComment;
 
 
 /***/ }),

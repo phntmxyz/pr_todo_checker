@@ -1,4 +1,4 @@
-import { findTodos } from '../src/main' // replace with the actual path to the function
+import { findTodos } from '../src/tools'
 import { Todo } from '../src/types'
 import { excludeFilesPrDiff, todoPrDiff } from './test_data'
 
