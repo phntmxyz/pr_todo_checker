@@ -7,8 +7,9 @@
 [![Check dist/](https://github.com/phntmxyz/todo-finder-action/actions/workflows/check-dist.yml/badge.svg)](https://github.com/phntmxyz/todo-finder-action/actions/workflows/check-dist.yml)
 [![CodeQL](https://github.com/phntmxyz/todo-finder-action/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/phntmxyz/todo-finder-action/actions/workflows/codeql-analysis.yml)
 
-This GitHub Action scans your code for Todos, adds review comments, and creates a commit status based on the discovered Todos. 
-It offers an effective means to stay organized and track tasks that require attention within your codebase.
+This GitHub Action scans your code for Todos, adds review comments, and creates
+a commit status based on the discovered Todos. It offers an effective means to
+stay organized and track tasks that require attention within your codebase.
 
 ![first_todo](https://github.com/phntmxyz/todo-finder-action/assets/16827156/282fd59b-7be2-4210-ad47-845c910420c7)
 ![commit_status](https://github.com/phntmxyz/todo-finder-action/assets/16827156/dcdf289d-3cd8-4d36-8a40-3520bbfe4122)
@@ -67,6 +68,7 @@ steps:
         **/config/*.yml
       comment_on_todo: true
       comment_body: |
-        'A new Todo was discovered. If it is not a priority right now, consider marking it for later attention.\n{todo}\n'
+        "A new Todo was discovered. If it is not a priority right now,\
+        consider marking it for later attention.\n{todo}\n"
       comment_checkbox: 'Ignore'
 ```
