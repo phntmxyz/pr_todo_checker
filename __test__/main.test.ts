@@ -1,4 +1,3 @@
-import exp from 'constants'
 import { findTodos, generateComment } from '../src/tools'
 import { Todo } from '../src/types'
 import { excludeFilesPrDiff, todoPrDiff } from './test_data'
