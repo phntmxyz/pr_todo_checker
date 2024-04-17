@@ -7,11 +7,11 @@
 [![Check dist/](https://github.com/phntmxyz/todo-finder-action/actions/workflows/check-dist.yml/badge.svg)](https://github.com/phntmxyz/todo-finder-action/actions/workflows/check-dist.yml)
 [![CodeQL](https://github.com/phntmxyz/todo-finder-action/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/phntmxyz/todo-finder-action/actions/workflows/codeql-analysis.yml)
 
-This GitHub Action scans your code for TODO comments and generates a report.
-It's a great way to keep track of tasks that need to be done in your codebase.
+This GitHub Action scans your code for Todos, adds review comments, and creates a commit status based on the discovered Todos. 
+It offers an effective means to stay organized and track tasks that require attention within your codebase.
 
-![todos](https://github.com/phntmxyz/todo-finder-action/assets/16827156/d6220a06-72af-41a4-9f21-b51c75d75829)
-![status](https://github.com/phntmxyz/todo-finder-action/assets/16827156/fd4cd9a1-becb-41f0-ac9b-3ade71119ed7)
+![first_todo](https://github.com/phntmxyz/todo-finder-action/assets/16827156/282fd59b-7be2-4210-ad47-845c910420c7)
+![commit_status](https://github.com/phntmxyz/todo-finder-action/assets/16827156/dcdf289d-3cd8-4d36-8a40-3520bbfe4122)
 
 ## Usage
 
@@ -39,9 +39,6 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 ```
-
-This will scan the code in the repository and generate a report of all TODO
-comments found.
 
 ## Configuration
 
