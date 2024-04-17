@@ -25,9 +25,6 @@ export async function run(): Promise<void> {
 
     console.log('Is comment change:', isCommentChange)
 
-    // Check if the user is the bot, if not, return
-    if (user !== botName) return
-
     // Check if a comment, added by the bot, was edited. If so, update the commit status
     if (isCommentChange) {
       console.log('User:', user)

@@ -29312,9 +29312,6 @@ function run() {
                 github.context.payload.action === 'deleted';
             const user = (_b = (_a = github.context.payload.comment) === null || _a === void 0 ? void 0 : _a.user) === null || _b === void 0 ? void 0 : _b.login;
             console.log('Is comment change:', isCommentChange);
-            // Check if the user is the bot, if not, return
-            if (user !== botName)
-                return;
             // Check if a comment, added by the bot, was edited. If so, update the commit status
             if (isCommentChange) {
                 console.log('User:', user);
