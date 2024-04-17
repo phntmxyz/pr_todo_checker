@@ -29355,49 +29355,42 @@ function getPrDiff(octokit, base, head) {
 function findTodos(prDiff, exclude = []) {
     // Find first number in string
     const regex = /(\d+)/;
-    const todos = prDiff
-        .flatMap(file => {
+    const todos = [];
+    for (const file of prDiff) {
         const excluded = exclude.some(pattern => (0, minimatch_1.minimatch)(file.filename, pattern));
         const patch = file.patch;
         if (patch === undefined || excluded)
-            return;
+            continue;
         const lines = patch.split('\n');
         if (lines === undefined || lines.length === 0)
-            return;
+            continue;
         // remove first line and get the line number where the patch starts
         const firstLine = lines.shift();
         const match = firstLine === null || firstLine === void 0 ? void 0 : firstLine.match(regex);
         if (match === undefined || match === null || (match === null || match === void 0 ? void 0 : match.length) === 0)
-            return;
+            continue;
         const startLineNumer = parseInt(match[0]);
         // get all todos from the patch map them to the line number
         let currentLine = startLineNumer;
-        const todoItems = lines
-            .map(line => {
-            const isDeleted = line.trim().startsWith('-');
+        for (const line of lines) {
+            const isDeleted = line.startsWith('-');
             const todo = getTodoIfFound(line);
-            const todoItem = todo === undefined
-                ? undefined
-                : {
+            if (todo !== undefined) {
+                todos.push({
                     filename: file.filename,
                     line: currentLine,
                     content: todo,
                     isNew: !isDeleted
-                };
+                });
+            }
             if (isDeleted) {
                 currentLine -= 1;
             }
             else {
                 currentLine += 1;
             }
-            return todoItem;
-        })
-            .filter((todo) => todo !== undefined);
-        if (todoItems.length === 0)
-            return;
-        return todoItems;
-    })
-        .filter((todo) => todo !== undefined);
+        }
+    }
     return todos;
 }
 exports.findTodos = findTodos;

@@ -1,6 +1,6 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
-import { PrDiff, TodoItem } from './types'
+import { PrDiff, Todo } from './types'
 import { minimatch } from 'minimatch'
 
 export async function run(): Promise<void> {
@@ -66,61 +66,50 @@ async function getPrDiff(
   return response?.data?.files || []
 }
 
-export function findTodos(prDiff: PrDiff, exclude: string[] = []): TodoItem[] {
+export function findTodos(prDiff: PrDiff, exclude: string[] = []): Todo[] {
   // Find first number in string
   const regex = /(\d+)/
 
-  const todos: TodoItem[] = prDiff
-    .flatMap(file => {
-      const excluded = exclude.some(pattern =>
-        minimatch(file.filename, pattern)
-      )
-      const patch = file.patch
+  const todos: Todo[] = []
 
-      if (patch === undefined || excluded) return
+  for (const file of prDiff) {
+    const excluded = exclude.some(pattern => minimatch(file.filename, pattern))
+    const patch = file.patch
 
-      const lines = patch.split('\n')
-      if (lines === undefined || lines.length === 0) return
+    if (patch === undefined || excluded) continue
 
-      // remove first line and get the line number where the patch starts
-      const firstLine = lines.shift()
-      const match = firstLine?.match(regex)
-      if (match === undefined || match === null || match?.length === 0) return
-      const startLineNumer = parseInt(match[0])
+    const lines = patch.split('\n')
+    if (lines === undefined || lines.length === 0) continue
 
-      // get all todos from the patch map them to the line number
-      let currentLine = startLineNumer
-      const todoItems: TodoItem[] = lines
-        .map(line => {
-          const isDeleted = line.trim().startsWith('-')
+    // remove first line and get the line number where the patch starts
+    const firstLine = lines.shift()
+    const match = firstLine?.match(regex)
+    if (match === undefined || match === null || match?.length === 0) continue
+    const startLineNumer = parseInt(match[0])
 
-          const todo = getTodoIfFound(line)
+    // get all todos from the patch map them to the line number
+    let currentLine = startLineNumer
+    for (const line of lines) {
+      const isDeleted = line.startsWith('-')
 
-          const todoItem: TodoItem | undefined =
-            todo === undefined
-              ? undefined
-              : {
-                  filename: file.filename,
-                  line: currentLine,
-                  content: todo,
-                  isNew: !isDeleted
-                }
+      const todo = getTodoIfFound(line)
 
-          if (isDeleted) {
-            currentLine -= 1
-          } else {
-            currentLine += 1
-          }
-
-          return todoItem
+      if (todo !== undefined) {
+        todos.push({
+          filename: file.filename,
+          line: currentLine,
+          content: todo,
+          isAdded: !isDeleted
         })
-        .filter((todo): todo is TodoItem => todo !== undefined)
+      }
 
-      if (todoItems.length === 0) return
-
-      return todoItems
-    })
-    .filter((todo): todo is TodoItem => todo !== undefined)
+      if (isDeleted) {
+        currentLine -= 1
+      } else {
+        currentLine += 1
+      }
+    }
+  }
   return todos
 }
 
@@ -135,7 +124,7 @@ async function commentPr(
   octokit: ReturnType<typeof github.getOctokit>,
   prNumber: number,
   botName: string,
-  todos: TodoItem[]
+  todos: Todo[]
 ): Promise<void> {
   const { owner, repo } = github.context.repo
   const issueNumber = github.context.payload.pull_request?.number
@@ -154,9 +143,9 @@ async function commentPr(
     comment => comment.user?.login === botName
   )
 
-  const addedTodos = todos.filter(todo => todo.isNew)
+  const addedTodos = todos.filter(todo => todo.isAdded)
 
-  const existingTodosWithComment: TodoItem[] = []
+  const existingTodosWithComment: Todo[] = []
   for (const comment of botComments) {
     // If position is null or undefined, the comment is outdated and should be deleted
     if (comment.position === null || comment.position === undefined) {
@@ -205,11 +194,11 @@ async function commentPr(
   }
 }
 
-function generateComment(todo: TodoItem): string {
+function generateComment(todo: Todo): string {
   let comment =
     'A new Todo was found. If you want to fix it later on, mark it as ignore.\n'
   comment += `*${todo.content}*\n`
-  if (todo.isNew) {
+  if (todo.isAdded) {
     comment += `- [ ] Ignore`
   } else {
     comment += `- [x] Ignore`
