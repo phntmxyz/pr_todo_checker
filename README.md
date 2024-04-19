@@ -1,6 +1,6 @@
 # GitHub PR Todo Checker Action
 
-![GitHub Marketplace](https://img.shields.io/badge/Marketplace-TODO%20Finder%20Action-blue?logo=github)
+[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-PR%20Todo%20Checker-blue?logo=github)](https://github.com/marketplace/actions/pr-todo-checker)
 
 [![GitHub Super-Linter](https://github.com/phntmxyz/pr_todo_checker/actions/workflows/linter.yml/badge.svg)](https://github.com/super-linter/super-linter)
 ![CI](https://github.com/phntmxyz/pr_todo_checker/actions/workflows/ci.yml/badge.svg)
