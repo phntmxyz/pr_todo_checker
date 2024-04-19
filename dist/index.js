@@ -29307,7 +29307,6 @@ function run() {
             const commentCheckboxTemplate = core.getInput('comment_checkbox');
             const octokit = github.getOctokit(token);
             const botName = 'github-actions[bot]';
-            console.log('Hey from', github.context.actor);
             const pr = github.context.payload.pull_request;
             if (!pr || !pr.number) {
                 throw new Error('Action can only be run on pull requests');
