@@ -15,6 +15,7 @@ export async function run(): Promise<void> {
 
     const octokit = github.getOctokit(token)
     const botName = 'github-actions[bot]'
+    console.log('Hey from', github.context.actor)
     const pr = github.context.payload.pull_request
 
     if (!pr || !pr.number) {
@@ -205,7 +206,7 @@ async function createCommitStatus(
       sha: headSha,
       state,
       description: `${doneCount}/${todoCount} TODOs solved`,
-      context: 'TODO Finder'
+      context: 'PR Todo Checker'
     })
     console.log('Done:', doneCount)
     console.log('Total:', todoCount)

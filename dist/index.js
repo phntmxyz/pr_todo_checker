@@ -29307,6 +29307,7 @@ function run() {
             const commentCheckboxTemplate = core.getInput('comment_checkbox');
             const octokit = github.getOctokit(token);
             const botName = 'github-actions[bot]';
+            console.log('Hey from', github.context.actor);
             const pr = github.context.payload.pull_request;
             if (!pr || !pr.number) {
                 throw new Error('Action can only be run on pull requests');
@@ -29457,7 +29458,7 @@ function createCommitStatus(octokit, doneCount, todoCount) {
                 sha: headSha,
                 state,
                 description: `${doneCount}/${todoCount} TODOs solved`,
-                context: 'TODO Finder'
+                context: 'PR Todo Checker'
             });
             console.log('Done:', doneCount);
             console.log('Total:', todoCount);

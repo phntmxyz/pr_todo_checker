@@ -1,16 +1,16 @@
 {
-  "name": "todo-finder-action",
+  "name": "pr_todo_checker",
   "description": "GitHub Actions to find and comment added or removed TODOs in a diff or a pull request",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "author": "PHNTM",
   "private": true,
-  "homepage": "https://github.com/phntmxyz/todo-finder-action",
+  "homepage": "https://github.com/phntmxyz/pr_todo_checker",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/phntmxyz/todo-finder-action"
+    "url": "git+https://github.com/phntmxyz/pr_todo_checker"
   },
   "bugs": {
-    "url": "https://github.com/phntmxyz/todo-finder-action/issues"
+    "url": "https://github.com/phntmxyz/pr_todo_checker/issues"
   },
   "keywords": [
     "actions",

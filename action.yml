@@ -1,4 +1,4 @@
-name: 'TODO Finder Action'
+name: 'PR Todo Checker'
 
 description: 'Find and comment on TODOs in pull requests'
 

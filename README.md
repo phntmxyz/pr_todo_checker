@@ -1,25 +1,25 @@
-# GitHub TODO Finder Action
+# GitHub PR Todo Checker Action
 
 ![GitHub Marketplace](https://img.shields.io/badge/Marketplace-TODO%20Finder%20Action-blue?logo=github)
 
-[![GitHub Super-Linter](https://github.com/phntmxyz/todo-finder-action/actions/workflows/linter.yml/badge.svg)](https://github.com/super-linter/super-linter)
-![CI](https://github.com/phntmxyz/todo-finder-action/actions/workflows/ci.yml/badge.svg)
-[![Check dist/](https://github.com/phntmxyz/todo-finder-action/actions/workflows/check-dist.yml/badge.svg)](https://github.com/phntmxyz/todo-finder-action/actions/workflows/check-dist.yml)
-[![CodeQL](https://github.com/phntmxyz/todo-finder-action/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/phntmxyz/todo-finder-action/actions/workflows/codeql-analysis.yml)
+[![GitHub Super-Linter](https://github.com/phntmxyz/pr_todo_checker/actions/workflows/linter.yml/badge.svg)](https://github.com/super-linter/super-linter)
+![CI](https://github.com/phntmxyz/pr_todo_checker/actions/workflows/ci.yml/badge.svg)
+[![Check dist/](https://github.com/phntmxyz/pr_todo_checker/actions/workflows/check-dist.yml/badge.svg)](https://github.com/phntmxyz/pr_todo_checker/actions/workflows/check-dist.yml)
+[![CodeQL](https://github.com/phntmxyz/pr_todo_checker/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/phntmxyz/pr_todo_checker/actions/workflows/codeql-analysis.yml)
 
 This GitHub Action scans your code for Todos, adds review comments, and creates
 a commit status based on the discovered Todos. It offers an effective means to
 stay organized and track tasks that require attention within your codebase.
 
-![first_todo](https://github.com/phntmxyz/todo-finder-action/assets/16827156/282fd59b-7be2-4210-ad47-845c910420c7)
-![commit_status](https://github.com/phntmxyz/todo-finder-action/assets/16827156/dcdf289d-3cd8-4d36-8a40-3520bbfe4122)
+![first_todo](https://github.com/phntmxyz/pr_todo_checker/assets/16827156/282fd59b-7be2-4210-ad47-845c910420c7)
+![commit_status](https://github.com/phntmxyz/pr_todo_checker/assets/16827156/dcdf289d-3cd8-4d36-8a40-3520bbfe4122)
 
 ## Usage
 
 To use this action in your workflow, add the following step:
 
 ```yaml
-name: Check TODOs
+name: PR Todo Checker
 
 on:
   pull_request_review_comment:
@@ -35,8 +35,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Comment PR
-        uses: phntmxyz/todo-finder-action@v1
+      - name: Check for Todos
+        uses: phntmxyz/pr_todo_checker@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -59,8 +59,8 @@ steps:
   - name: Checkout
     uses: actions/checkout@v4
 
-  - name: Comment PR
-    uses: phntmxyz/todo-finder-action@v1
+  - name: Check for Todos
+    uses: phntmxyz/pr_todo_checker@v1
     with:
       token: ${{ secrets.GITHUB_TOKEN }}
       exclude: |
