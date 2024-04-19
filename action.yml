@@ -2,6 +2,10 @@ name: 'PR Todo Checker'
 
 description: 'Find and comment on TODOs in pull requests'
 
+branding:
+  icon: 'check-square'
+  color: 'green'
+
 inputs:
   token:
     description: 'GitHub token'
