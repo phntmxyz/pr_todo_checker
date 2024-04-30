@@ -1,10 +1,16 @@
 import { findTodos, generateComment } from '../src/tools'
 import { Todo } from '../src/types'
-import { excludeFilesPrDiff, todoPrDiff } from './test_data'
+import {
+  excludeFilesDiff,
+  mixedTodoDiff,
+  newFileTodoDiff,
+  startWithRemovedLineTodoDiff,
+  updateTodoDiff
+} from './test_data'
 
 describe('extractTodos', () => {
-  it('should correctly extract todos', () => {
-    const fileTodos = findTodos(todoPrDiff)
+  it('should correctly extract mixed todos', () => {
+    const fileTodos = findTodos(mixedTodoDiff)
 
     const expectedTodos: Todo[] = [
       {
@@ -47,10 +53,118 @@ describe('extractTodos', () => {
     expect(fileTodos).toEqual(expectedTodos)
   })
 
+  it('should correctly extract updated todos', () => {
+    const fileTodos = findTodos(updateTodoDiff)
+
+    const expectedTodos: Todo[] = [
+      {
+        filename: 'README.md',
+        line: 29,
+        content: 'todo remved',
+        isAdded: false
+      },
+      {
+        filename: 'README.md',
+        line: 29,
+        content: 'todo updated',
+        isAdded: true
+      }
+    ]
+    expect(fileTodos).toEqual(expectedTodos)
+  })
+
+  it('should correctly extract todos from a new file', () => {
+    const fileTodos = findTodos(newFileTodoDiff)
+
+    const expectedTodos: Todo[] = [
+      {
+        filename: 'first.js',
+        line: 3,
+        content: 'TODO first todo',
+        isAdded: true
+      },
+      {
+        filename: 'first.js',
+        line: 4,
+        content: 'TODO second todo',
+        isAdded: true
+      },
+      {
+        filename: 'first.js',
+        line: 5,
+        content: 'TODO third todo',
+        isAdded: true
+      },
+      {
+        filename: 'first.js',
+        line: 6,
+        content: 'TODO fourth todo',
+        isAdded: true
+      },
+      {
+        filename: 'first.js',
+        line: 14,
+        content: 'TODO: Implement methodA',
+        isAdded: true
+      },
+      {
+        filename: 'first.js',
+        line: 25,
+        content: 'TODO: Implement methodB',
+        isAdded: true
+      }
+    ]
+    expect(fileTodos).toEqual(expectedTodos)
+  })
+
+  it('should correctly extract todos when diff starts with removed lines', () => {
+    const fileTodos = findTodos(startWithRemovedLineTodoDiff)
+
+    const expectedTodos: Todo[] = [
+      {
+        filename: 'first.js',
+        line: 4,
+        content: 'TODO first todo',
+        isAdded: false
+      },
+      {
+        filename: 'first.js',
+        line: 5,
+        content: 'TODO second todo',
+        isAdded: false
+      },
+      {
+        filename: 'first.js',
+        line: 6,
+        content: 'TODO third todo',
+        isAdded: false
+      },
+      {
+        filename: 'first.js',
+        line: 7,
+        content: 'TODO fourth todo',
+        isAdded: false
+      },
+      {
+        filename: 'first.js',
+        line: 15,
+        content: 'TODO: Implement methodA',
+        isAdded: true
+      },
+      {
+        filename: 'first.js',
+        line: 25,
+        content: 'TODO: Implement methodB',
+        isAdded: false
+      }
+    ]
+    expect(fileTodos).toEqual(expectedTodos)
+  })
+
   it('should correctly exclude files', () => {
     const exclude = ['**/*.yml', '**/excluded/*']
 
-    const fileTodos = findTodos(excludeFilesPrDiff, exclude)
+    const fileTodos = findTodos(excludeFilesDiff, exclude)
 
     const expectedTodos: Todo[] = [
       {

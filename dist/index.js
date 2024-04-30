@@ -29482,7 +29482,8 @@ exports.generateComment = exports.findTodos = void 0;
 const minimatch_1 = __nccwpck_require__(4501);
 function findTodos(prDiff, exclude = []) {
     // Find first number in string
-    const regex = /(\d+)/;
+    const firstAddedLineRegex = /\+(\d+)/;
+    const firstRemovedLineRegex = /-(\d+)/;
     const todos = [];
     for (const file of prDiff) {
         const excluded = exclude.some(pattern => (0, minimatch_1.minimatch)(file.filename, pattern));
@@ -29494,28 +29495,56 @@ function findTodos(prDiff, exclude = []) {
             continue;
         // remove first line and get the line number where the patch starts
         const firstLine = lines.shift();
-        const match = firstLine === null || firstLine === void 0 ? void 0 : firstLine.match(regex);
-        if (match === undefined || match === null || (match === null || match === void 0 ? void 0 : match.length) === 0)
+        let addedStartLineNumer;
+        const addedMatch = firstLine === null || firstLine === void 0 ? void 0 : firstLine.match(firstAddedLineRegex);
+        if (addedMatch !== undefined &&
+            addedMatch !== null &&
+            (addedMatch === null || addedMatch === void 0 ? void 0 : addedMatch.length) > 1) {
+            addedStartLineNumer = parseInt(addedMatch[1]);
+        }
+        let removedStartLineNumer;
+        const removedMatch = firstLine === null || firstLine === void 0 ? void 0 : firstLine.match(firstRemovedLineRegex);
+        if (removedMatch !== undefined &&
+            removedMatch !== null &&
+            (removedMatch === null || removedMatch === void 0 ? void 0 : removedMatch.length) > 1) {
+            removedStartLineNumer = parseInt(removedMatch[1]);
+        }
+        if (addedStartLineNumer === undefined ||
+            removedStartLineNumer === undefined) {
             continue;
-        const startLineNumer = parseInt(match[0]);
+        }
         // get all todos from the patch map them to the line number
-        let currentLine = startLineNumer;
+        let currentAddedLine = addedStartLineNumer;
+        let currentRemovedLine = removedStartLineNumer;
         for (const line of lines) {
+            const isAdded = line.startsWith('+');
             const isDeleted = line.startsWith('-');
             const todo = getTodoIfFound(line);
-            if (todo !== undefined) {
-                todos.push({
-                    filename: file.filename,
-                    line: currentLine,
-                    content: todo,
-                    isAdded: !isDeleted
-                });
-            }
             if (isDeleted) {
-                currentLine -= 1;
+                if (todo !== undefined) {
+                    todos.push({
+                        filename: file.filename,
+                        line: currentRemovedLine,
+                        content: todo,
+                        isAdded: false
+                    });
+                }
+                currentRemovedLine += 1;
+            }
+            else if (isAdded) {
+                if (todo !== undefined) {
+                    todos.push({
+                        filename: file.filename,
+                        line: currentAddedLine,
+                        content: todo,
+                        isAdded: true
+                    });
+                }
+                currentAddedLine += 1;
             }
             else {
-                currentLine += 1;
+                currentAddedLine += 1;
+                currentRemovedLine += 1;
             }
         }
     }
@@ -29523,7 +29552,7 @@ function findTodos(prDiff, exclude = []) {
 }
 exports.findTodos = findTodos;
 function getTodoIfFound(line) {
-    const regex = /[/*#]+.*(TODO.*|FIXME.*)/i;
+    const regex = /[/*#]+.*?(TODO.*|FIXME.*)/i;
     const match = line.match(regex);
     if (match === undefined || match === null || (match === null || match === void 0 ? void 0 : match.length) === 0)
         return;
