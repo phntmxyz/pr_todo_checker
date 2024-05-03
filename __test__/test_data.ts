@@ -57,7 +57,7 @@ export const mixedTodoDiff: PrDiff = [
 +// todo - lower case with space
 +//todo - lower case no space
 +
-+// comment
++// also a todo comment
 +// comment
 +/*
 + * todo - In comment block
@@ -229,5 +229,51 @@ export const excludeFilesDiff: PrDiff = [
     patch: `@@ -0,0 +22,14 @@ any text';
 + // TODO - in included directory`,
     previous_filename: undefined
+  }
+]
+
+export const htmlTodoDiff: PrDiff = [
+  {
+    sha: '111111111',
+    filename: 'first.html',
+    status: 'modified',
+    additions: 2,
+    deletions: 0,
+    changes: 1,
+    blob_url: '',
+    raw_url: '',
+    contents_url: '',
+    patch: `@@ -2,0 +1,27 @@
+ <html>
++  <!-- TODO first todo -->
+   <body>
+-     <!-- TODO second todo -->
++     <!-- TODO third todo -->
++     <!-- TODO fourth todo -->
+      <h1>My First Heading</h1>
+      <p>My first paragraph.</p>
+   </body>`
+  }
+]
+
+export const mixedTodoMatcherDiff: PrDiff = [
+  {
+    sha: '111111111',
+    filename: 'first.any',
+    status: 'modified',
+    additions: 2,
+    deletions: 0,
+    changes: 1,
+    blob_url: '',
+    raw_url: '',
+    contents_url: '',
+    patch: `@@ -0,0 +1,27 @@
++  <!-- TODO first todo -->
++ / todo no todo
++ // todo second todo
++ # todo third todo
++ -- todo fourth todo
++ ; todo fifth todo
++ // fixme sixth todo`
   }
 ]

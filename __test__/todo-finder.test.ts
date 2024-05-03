@@ -1,16 +1,10 @@
-import { findTodos, generateComment } from '../src/tools'
+import { findTodos } from '../src/todo-finder'
 import { Todo } from '../src/types'
-import {
-  excludeFilesDiff,
-  mixedTodoDiff,
-  newFileTodoDiff,
-  startWithRemovedLineTodoDiff,
-  updateTodoDiff
-} from './test_data'
+import * as testData from './test_data'
 
-describe('extractTodos', () => {
+describe('extract Todos', () => {
   it('should correctly extract mixed todos', () => {
-    const fileTodos = findTodos(mixedTodoDiff)
+    const fileTodos = findTodos(testData.mixedTodoDiff)
 
     const expectedTodos: Todo[] = [
       {
@@ -45,6 +39,12 @@ describe('extractTodos', () => {
       },
       {
         filename: 'lib/second.js',
+        line: 30,
+        content: 'todo comment',
+        isAdded: true
+      },
+      {
+        filename: 'lib/second.js',
         line: 33,
         content: 'todo - In comment block',
         isAdded: true
@@ -54,7 +54,7 @@ describe('extractTodos', () => {
   })
 
   it('should correctly extract updated todos', () => {
-    const fileTodos = findTodos(updateTodoDiff)
+    const fileTodos = findTodos(testData.updateTodoDiff)
 
     const expectedTodos: Todo[] = [
       {
@@ -74,7 +74,7 @@ describe('extractTodos', () => {
   })
 
   it('should correctly extract todos from a new file', () => {
-    const fileTodos = findTodos(newFileTodoDiff)
+    const fileTodos = findTodos(testData.newFileTodoDiff)
 
     const expectedTodos: Todo[] = [
       {
@@ -118,7 +118,7 @@ describe('extractTodos', () => {
   })
 
   it('should correctly extract todos when diff starts with removed lines', () => {
-    const fileTodos = findTodos(startWithRemovedLineTodoDiff)
+    const fileTodos = findTodos(testData.startWithRemovedLineTodoDiff)
 
     const expectedTodos: Todo[] = [
       {
@@ -164,7 +164,7 @@ describe('extractTodos', () => {
   it('should correctly exclude files', () => {
     const exclude = ['**/*.yml', '**/excluded/*']
 
-    const fileTodos = findTodos(excludeFilesDiff, exclude)
+    const fileTodos = findTodos(testData.excludeFilesDiff, exclude)
 
     const expectedTodos: Todo[] = [
       {
@@ -184,31 +184,88 @@ describe('extractTodos', () => {
   })
 })
 
-describe('setting comment body and checkbox', () => {
-  it('should be used correctly', () => {
-    const commentBodyTemplate = `A new Todo was discovered. If it is not a priority right now, consider marking it for later attention.\n{todo}\n`
-    const commentCheckboxTemplate = 'Ignore'
+describe('custom todo matcher', () => {
+  it('should match html comment', () => {
+    const customMatcher = "{'html': ['<!--']}"
+    const fileTodos = findTodos(testData.htmlTodoDiff, [], customMatcher)
 
-    const todo = {
-      filename: 'included/other.txt',
-      line: 22,
-      content: 'TODO - in included directory',
-      isAdded: true
-    }
+    const expectedTodos: Todo[] = [
+      {
+        filename: 'first.html',
+        line: 2,
+        content: 'TODO first todo -->',
+        isAdded: true
+      },
+      {
+        filename: 'first.html',
+        line: 4,
+        content: 'TODO second todo -->',
+        isAdded: false
+      },
+      {
+        filename: 'first.html',
+        line: 4,
+        content: 'TODO third todo -->',
+        isAdded: true
+      },
+      {
+        filename: 'first.html',
+        line: 5,
+        content: 'TODO fourth todo -->',
+        isAdded: true
+      }
+    ]
 
-    const comment = generateComment(
-      commentBodyTemplate,
-      commentCheckboxTemplate,
-      todo
+    expect(fileTodos).toEqual(expectedTodos)
+  })
+
+  it('should match mixed comment indicators', () => {
+    const customMatcher = "{'any': ['<!--', '//', '#', '--', ';']}"
+    const fileTodos = findTodos(
+      testData.mixedTodoMatcherDiff,
+      [],
+      customMatcher
     )
 
-    const expectedComment = [
-      'A new Todo was discovered. If it is not a priority right now, consider marking it for later attention.',
-      'TODO - in included directory',
-      '',
-      '- [ ] Ignore'
-    ].join('\n')
+    const expectedTodos: Todo[] = [
+      {
+        filename: 'first.any',
+        line: 1,
+        content: 'TODO first todo -->',
+        isAdded: true
+      },
+      {
+        filename: 'first.any',
+        line: 3,
+        content: 'todo second todo',
+        isAdded: true
+      },
+      {
+        filename: 'first.any',
+        line: 4,
+        content: 'todo third todo',
+        isAdded: true
+      },
+      {
+        filename: 'first.any',
+        line: 5,
+        content: 'todo fourth todo',
+        isAdded: true
+      },
+      {
+        filename: 'first.any',
+        line: 6,
+        content: 'todo fifth todo',
+        isAdded: true
+      },
+      {
+        filename: 'first.any',
+        line: 7,
+        content: 'fixme sixth todo',
+        isAdded: true
+      }
+    ]
 
-    expect(comment).toEqual(expectedComment)
+    expect(fileTodos).toEqual(expectedTodos)
   })
 })
