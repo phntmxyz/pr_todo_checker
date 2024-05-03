@@ -44,8 +44,7 @@ jobs:
 
 Example of matching Todos:
 
-```
-# TODO with hashtag comment
+```js
 //       TODO - upper case with much space
 // todo - lower case with space
 //todo - lower case no space
@@ -56,6 +55,11 @@ Example of matching Todos:
 /*
  * todo - In comment block
  */
+```
+
+```bash
+# TODO with hashtag comment
+# FIXME with hashtag comment
 ```
 
 ## Configuration
@@ -70,8 +74,8 @@ You can configure the action further by providing inputs:
   `{todo}` to insert the Todo content.
 - `comment_checkbox`: (**optional**) The text to use for the checkbox in the
   comment. Use `{todo}` to insert the Todo content
-- `custom_todo_matcher`: (**optional**) A custom regex pattern to match TODOs.
-  Default matches `//`, `*` and `#` followed by `TODO` or `FIXME`.
+- `custom_todo_matcher`: (**optional**) Add custom comment indicators to match
+  TODOs. Default matches `//`, `*` and `#` followed by `TODO` or `FIXME`.
 
 ```yaml
 steps:
