@@ -1,7 +1,8 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
 import { PrDiff, Todo } from './types'
-import { findTodos, generateComment } from './tools'
+import { findTodos } from './todo-finder'
+import { generateComment } from './comment'
 
 export async function run(): Promise<void> {
   try {
@@ -12,6 +13,7 @@ export async function run(): Promise<void> {
     const commentOnTodo = core.getInput('comment_on_todo') === 'true'
     const commentBodyTemplate = core.getInput('comment_body')
     const commentCheckboxTemplate = core.getInput('comment_checkbox')
+    const customTodoMatcher = core.getInput('custom_todo_matcher')
 
     const octokit = github.getOctokit(token)
     const botName = 'github-actions[bot]'
@@ -36,7 +38,7 @@ export async function run(): Promise<void> {
     } else if (commentOnTodo) {
       const prDiff = await getPrDiff(octokit, pr.base.sha, pr.head.sha)
 
-      const todos = findTodos(prDiff, excludePatterns)
+      const todos = findTodos(prDiff, excludePatterns, customTodoMatcher)
       console.log('Todos:', JSON.stringify(todos))
       await commentPr(
         octokit,

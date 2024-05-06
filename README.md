@@ -16,7 +16,8 @@ stay organized and track tasks that require attention within your codebase.
 
 ## Usage
 
-To use this action in your workflow, add the following step:
+To use this action in your workflow, add the following step. By default, the
+action will search for `//`, `*` and `#` followed by `TODO` or `FIXME`.
 
 ```yaml
 name: PR Todo Checker
@@ -36,9 +37,29 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Check for Todos
-        uses: phntmxyz/pr_todo_checker@latest
+        uses: phntmxyz/pr_todo_checker@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+Example of matching Todos:
+
+```js
+//       TODO - upper case with much space
+// todo - lower case with space
+//todo - lower case no space
+
+/ no comment
+// also todo comment
+// fixme found todo
+/*
+ * todo - In comment block
+ */
+```
+
+```bash
+# TODO with hashtag comment
+# FIXME with hashtag comment
 ```
 
 ## Configuration
@@ -53,6 +74,8 @@ You can configure the action further by providing inputs:
   `{todo}` to insert the Todo content.
 - `comment_checkbox`: (**optional**) The text to use for the checkbox in the
   comment. Use `{todo}` to insert the Todo content
+- `custom_todo_matcher`: (**optional**) Add custom comment indicators to match
+  TODOs. Default matches `//`, `*` and `#` followed by `TODO` or `FIXME`.
 
 ```yaml
 steps:
@@ -60,7 +83,7 @@ steps:
     uses: actions/checkout@v4
 
   - name: Check for Todos
-    uses: phntmxyz/pr_todo_checker@latest
+    uses: phntmxyz/pr_todo_checker@v1
     with:
       token: ${{ secrets.GITHUB_TOKEN }}
       exclude: |
@@ -71,4 +94,5 @@ steps:
         "A new Todo was discovered. If it is not a priority right now,\
         consider marking it for later attention.\n{todo}\n"
       comment_checkbox: 'Ignore'
+      custom_todo_matcher: "{'js': ['//', '/*'], 'py': ['#']}"
 ```

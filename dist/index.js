@@ -29253,6 +29253,29 @@ function wrappy (fn, cb) {
 
 /***/ }),
 
+/***/ 7810:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.generateComment = void 0;
+function generateComment(bodyTemplate, checkboxTemplate, todo) {
+    let comment = bodyTemplate.replace('{todo}', todo.content);
+    comment += '\n';
+    if (todo.isAdded) {
+        comment += `- [ ] ${checkboxTemplate.replace('{todo}', todo.content)}`;
+    }
+    else {
+        comment += `- [x] ${checkboxTemplate.replace('{todo}', todo.content)}`;
+    }
+    return comment;
+}
+exports.generateComment = generateComment;
+
+
+/***/ }),
+
 /***/ 399:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -29294,7 +29317,8 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.run = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
-const tools_1 = __nccwpck_require__(5905);
+const todo_finder_1 = __nccwpck_require__(2461);
+const comment_1 = __nccwpck_require__(7810);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         var _a, _b;
@@ -29305,6 +29329,7 @@ function run() {
             const commentOnTodo = core.getInput('comment_on_todo') === 'true';
             const commentBodyTemplate = core.getInput('comment_body');
             const commentCheckboxTemplate = core.getInput('comment_checkbox');
+            const customTodoMatcher = core.getInput('custom_todo_matcher');
             const octokit = github.getOctokit(token);
             const botName = 'github-actions[bot]';
             const pr = github.context.payload.pull_request;
@@ -29323,7 +29348,7 @@ function run() {
             }
             else if (commentOnTodo) {
                 const prDiff = yield getPrDiff(octokit, pr.base.sha, pr.head.sha);
-                const todos = (0, tools_1.findTodos)(prDiff, excludePatterns);
+                const todos = (0, todo_finder_1.findTodos)(prDiff, excludePatterns, customTodoMatcher);
                 console.log('Todos:', JSON.stringify(todos));
                 yield commentPr(octokit, pr.number, botName, todos, commentBodyTemplate, commentCheckboxTemplate);
             }
@@ -29394,7 +29419,7 @@ function commentPr(octokit, prNumber, botName, todos, commentBodyTemplate, comme
                 owner,
                 repo,
                 pull_number: prNumber,
-                body: (0, tools_1.generateComment)(commentBodyTemplate, commentCheckboxTemplate, todo),
+                body: (0, comment_1.generateComment)(commentBodyTemplate, commentCheckboxTemplate, todo),
                 commit_id: headSha,
                 path: todo.filename,
                 side: 'RIGHT',
@@ -29472,15 +29497,15 @@ function createCommitStatus(octokit, doneCount, todoCount) {
 
 /***/ }),
 
-/***/ 5905:
+/***/ 2461:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.generateComment = exports.findTodos = void 0;
+exports.findTodos = void 0;
 const minimatch_1 = __nccwpck_require__(4501);
-function findTodos(prDiff, exclude = []) {
+function findTodos(prDiff, exclude = [], customTodoMatcherString = '{}') {
     // Find first number in string
     const firstAddedLineRegex = /\+(\d+)/;
     const firstRemovedLineRegex = /-(\d+)/;
@@ -29516,10 +29541,12 @@ function findTodos(prDiff, exclude = []) {
         // get all todos from the patch map them to the line number
         let currentAddedLine = addedStartLineNumer;
         let currentRemovedLine = removedStartLineNumer;
+        // get custom todo matcher for the file
+        const customMatcher = getTodoMatcherForFile(file.filename, customTodoMatcherString);
         for (const line of lines) {
             const isAdded = line.startsWith('+');
             const isDeleted = line.startsWith('-');
-            const todo = getTodoIfFound(line);
+            const todo = getTodoIfFound(line, customMatcher);
             if (isDeleted) {
                 if (todo !== undefined) {
                     todos.push({
@@ -29551,26 +29578,66 @@ function findTodos(prDiff, exclude = []) {
     return todos;
 }
 exports.findTodos = findTodos;
-function getTodoIfFound(line) {
-    const regex = /[/*#]+.*?(TODO.*|FIXME.*)/i;
+function getTodoMatcherForFile(filename, customTodoMatcherString) {
+    const filenameParts = filename.split('.');
+    let customMatcher = [];
+    const customTodoMatcher = JSON.parse(customTodoMatcherString.replace(/'/g, '"'));
+    for (const filetype of Object.keys(customTodoMatcher)) {
+        if (filenameParts[filenameParts.length - 1] === filetype) {
+            customMatcher = customTodoMatcher[filetype] || [];
+            break;
+        }
+    }
+    return customMatcher;
+}
+function getTodoIfFound(line, customMatcher = []) {
+    const regex = new RegExp(buildTodoMatcher(customMatcher), 'i');
     const match = line.match(regex);
     if (match === undefined || match === null || (match === null || match === void 0 ? void 0 : match.length) === 0)
         return;
-    return match[1];
+    // remove html closing comment tag if present
+    const todo = match[1].replace('-->', '').trim();
+    return todo;
 }
-function generateComment(bodyTemplate, checkboxTemplate, todo) {
-    let comment = bodyTemplate.replace('{todo}', todo.content);
-    comment += '\n';
-    if (todo.isAdded) {
-        comment += `- [ ] ${checkboxTemplate.replace('{todo}', todo.content)}`;
+function buildTodoMatcher(customMatcher) {
+    let todoMatcher;
+    if (customMatcher.length === 0) {
+        // default todo matcher
+        todoMatcher = ['//', '*', '#'];
     }
     else {
-        comment += `- [x] ${checkboxTemplate.replace('{todo}', todo.content)}`;
+        todoMatcher = customMatcher;
     }
-    console.log(comment);
-    return comment;
+    const needToEscape = [
+        ']',
+        '\\',
+        '^',
+        '*',
+        '+',
+        '?',
+        '{',
+        '}',
+        '|',
+        '(',
+        ')',
+        '$',
+        '.'
+    ];
+    const escapedPatterns = todoMatcher.map(pattern => {
+        let escapedPattern = '';
+        for (const char of pattern) {
+            if (needToEscape.includes(char)) {
+                escapedPattern += `\\${char}`;
+            }
+            else {
+                escapedPattern += char;
+            }
+        }
+        return escapedPattern;
+    });
+    const regex = `(?:${escapedPatterns.join('|')}).*?(TODO.*|FIXME.*)`;
+    return regex;
 }
-exports.generateComment = generateComment;
 
 
 /***/ }),

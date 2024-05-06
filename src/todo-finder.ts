@@ -1,7 +1,11 @@
 import { PrDiff, Todo } from './types'
 import { minimatch } from 'minimatch'
 
-export function findTodos(prDiff: PrDiff, exclude: string[] = []): Todo[] {
+export function findTodos(
+  prDiff: PrDiff,
+  exclude: string[] = [],
+  customTodoMatcherString = '{}'
+): Todo[] {
   // Find first number in string
   const firstAddedLineRegex = /\+(\d+)/
   const firstRemovedLineRegex = /-(\d+)/
@@ -51,11 +55,17 @@ export function findTodos(prDiff: PrDiff, exclude: string[] = []): Todo[] {
     let currentAddedLine = addedStartLineNumer
     let currentRemovedLine = removedStartLineNumer
 
+    // get custom todo matcher for the file
+    const customMatcher = getTodoMatcherForFile(
+      file.filename,
+      customTodoMatcherString
+    )
+
     for (const line of lines) {
       const isAdded = line.startsWith('+')
       const isDeleted = line.startsWith('-')
 
-      const todo = getTodoIfFound(line)
+      const todo = getTodoIfFound(line, customMatcher)
 
       if (isDeleted) {
         if (todo !== undefined) {
@@ -86,25 +96,73 @@ export function findTodos(prDiff: PrDiff, exclude: string[] = []): Todo[] {
   return todos
 }
 
-function getTodoIfFound(line: string): string | undefined {
-  const regex = /[/*#]+.*?(TODO.*|FIXME.*)/i
-  const match = line.match(regex)
-  if (match === undefined || match === null || match?.length === 0) return
-  return match[1]
+function getTodoMatcherForFile(
+  filename: string,
+  customTodoMatcherString: string
+): string[] {
+  const filenameParts = filename.split('.')
+  let customMatcher: string[] = []
+  const customTodoMatcher = JSON.parse(
+    customTodoMatcherString.replace(/'/g, '"')
+  )
+  for (const filetype of Object.keys(customTodoMatcher)) {
+    if (filenameParts[filenameParts.length - 1] === filetype) {
+      customMatcher = customTodoMatcher[filetype] || []
+      break
+    }
+  }
+  return customMatcher
 }
 
-export function generateComment(
-  bodyTemplate: string,
-  checkboxTemplate: string,
-  todo: Todo
-): string {
-  let comment = bodyTemplate.replace('{todo}', todo.content)
-  comment += '\n'
-  if (todo.isAdded) {
-    comment += `- [ ] ${checkboxTemplate.replace('{todo}', todo.content)}`
+function getTodoIfFound(
+  line: string,
+  customMatcher: string[] = []
+): string | undefined {
+  const regex = new RegExp(buildTodoMatcher(customMatcher), 'i')
+  const match = line.match(regex)
+  if (match === undefined || match === null || match?.length === 0) return
+  // remove html closing comment tag if present
+  const todo = match[1].replace('-->', '').trim()
+  return todo
+}
+
+function buildTodoMatcher(customMatcher: string[]): string {
+  let todoMatcher: string[]
+  if (customMatcher.length === 0) {
+    // default todo matcher
+    todoMatcher = ['//', '*', '#']
   } else {
-    comment += `- [x] ${checkboxTemplate.replace('{todo}', todo.content)}`
+    todoMatcher = customMatcher
   }
-  console.log(comment)
-  return comment
+
+  const needToEscape = [
+    ']',
+    '\\',
+    '^',
+    '*',
+    '+',
+    '?',
+    '{',
+    '}',
+    '|',
+    '(',
+    ')',
+    '$',
+    '.'
+  ]
+
+  const escapedPatterns = todoMatcher.map(pattern => {
+    let escapedPattern = ''
+    for (const char of pattern) {
+      if (needToEscape.includes(char)) {
+        escapedPattern += `\\${char}`
+      } else {
+        escapedPattern += char
+      }
+    }
+    return escapedPattern
+  })
+
+  const regex = `(?:${escapedPatterns.join('|')}).*?(TODO.*|FIXME.*)`
+  return regex
 }
