@@ -36,7 +36,7 @@ inputs:
       JSON format.\
       Example: {'js': ['//', '/*'], 'py': ['#']}"
     required: false
-    default: {}
+    default: '{}'
 
 runs:
   using: 'node20'
