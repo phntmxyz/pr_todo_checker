@@ -121,7 +121,9 @@ function getTodoIfFound(
   const regex = new RegExp(buildTodoMatcher(customMatcher), 'i')
   const match = line.match(regex)
   if (match === undefined || match === null || match?.length === 0) return
-  return match[1]
+  // remove html closing comment tag if present
+  const todo = match[1].replace('-->', '').trim()
+  return todo
 }
 
 function buildTodoMatcher(customMatcher: string[]): string {

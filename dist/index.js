@@ -29595,7 +29595,9 @@ function getTodoIfFound(line, customMatcher = []) {
     const match = line.match(regex);
     if (match === undefined || match === null || (match === null || match === void 0 ? void 0 : match.length) === 0)
         return;
-    return match[1];
+    // remove html closing comment tag if present
+    const todo = match[1].replace('-->', '').trim();
+    return todo;
 }
 function buildTodoMatcher(customMatcher) {
     let todoMatcher;

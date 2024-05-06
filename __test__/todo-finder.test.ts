@@ -193,25 +193,25 @@ describe('custom todo matcher', () => {
       {
         filename: 'first.html',
         line: 2,
-        content: 'TODO first todo -->',
+        content: 'TODO first todo',
         isAdded: true
       },
       {
         filename: 'first.html',
         line: 4,
-        content: 'TODO second todo -->',
+        content: 'TODO second todo',
         isAdded: false
       },
       {
         filename: 'first.html',
         line: 4,
-        content: 'TODO third todo -->',
+        content: 'TODO third todo',
         isAdded: true
       },
       {
         filename: 'first.html',
         line: 5,
-        content: 'TODO fourth todo -->',
+        content: 'TODO fourth todo',
         isAdded: true
       }
     ]
@@ -231,7 +231,7 @@ describe('custom todo matcher', () => {
       {
         filename: 'first.any',
         line: 1,
-        content: 'TODO first todo -->',
+        content: 'TODO first todo',
         isAdded: true
       },
       {

@@ -37,7 +37,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Check for Todos
-        uses: phntmxyz/pr_todo_checker@latest
+        uses: phntmxyz/pr_todo_checker@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -83,7 +83,7 @@ steps:
     uses: actions/checkout@v4
 
   - name: Check for Todos
-    uses: phntmxyz/pr_todo_checker@latest
+    uses: phntmxyz/pr_todo_checker@v1
     with:
       token: ${{ secrets.GITHUB_TOKEN }}
       exclude: |
