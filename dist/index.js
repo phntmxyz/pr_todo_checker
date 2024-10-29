@@ -29314,7 +29314,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.run = void 0;
+exports.getTodosForDiff = exports.run = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
 const todo_finder_1 = __nccwpck_require__(2461);
@@ -29454,13 +29454,13 @@ function updateCommitStatus(octokit, prNumber, botName) {
                 console.log('Comment:', comment.line, comment.body);
                 // Check if the comment contains a markdown checkbox which is checked
                 const matches = (_b = comment.body) === null || _b === void 0 ? void 0 : _b.match(/- \[x\]/gi);
-                if (matches) {
+                if (matches != null) {
                     doneCount += 1;
                     todoCount += 1;
                 }
                 // Check if the comment contains a markdown checkbox which is unchecked
                 const uncheckedMatches = (_c = comment.body) === null || _c === void 0 ? void 0 : _c.match(/- \[ \]/gi);
-                if (uncheckedMatches) {
+                if (uncheckedMatches != null) {
                     todoCount += 1;
                 }
             }
@@ -29493,6 +29493,26 @@ function createCommitStatus(octokit, doneCount, todoCount) {
         }
     });
 }
+function getTodosForDiff(pat, owner, repo, base, head) {
+    return __awaiter(this, void 0, void 0, function* () {
+        var _a;
+        console.log('PAT:', pat);
+        console.log('Owner:', owner);
+        console.log('Repo:', repo);
+        console.log('Base:', base);
+        console.log('Head:', head);
+        const octokit = github.getOctokit(pat);
+        const response = yield octokit.rest.repos.compareCommitsWithBasehead({
+            owner,
+            repo,
+            basehead: `${base}...${head}`
+        });
+        const prDiff = ((_a = response === null || response === void 0 ? void 0 : response.data) === null || _a === void 0 ? void 0 : _a.files) || [];
+        const todos = (0, todo_finder_1.findTodos)(prDiff, [], '{}');
+        console.log('Todos:', JSON.stringify(todos));
+    });
+}
+exports.getTodosForDiff = getTodosForDiff;
 
 
 /***/ }),
@@ -29509,69 +29529,83 @@ function findTodos(prDiff, exclude = [], customTodoMatcherString = '{}') {
     // Find first number in string
     const firstAddedLineRegex = /\+(\d+)/;
     const firstRemovedLineRegex = /-(\d+)/;
+    // Find new diff line @@ -128,12 +128,14 @@ class XYZ {
+    const newDiffLineRegex = /(@@ [-|+]?\d+,\d+ [-|+]?\d+,\d+ @@)(@@ [-|+]?\d+,\d+ [-|+]?\d+,\d+ @@)*/gm;
     const todos = [];
     for (const file of prDiff) {
         const excluded = exclude.some(pattern => (0, minimatch_1.minimatch)(file.filename, pattern));
         const patch = file.patch;
         if (patch === undefined || excluded)
             continue;
-        const lines = patch.split('\n');
-        if (lines === undefined || lines.length === 0)
+        // split patch into blocks
+        const matches = patch.match(newDiffLineRegex);
+        if (matches === null)
             continue;
-        // remove first line and get the line number where the patch starts
-        const firstLine = lines.shift();
-        let addedStartLineNumer;
-        const addedMatch = firstLine === null || firstLine === void 0 ? void 0 : firstLine.match(firstAddedLineRegex);
-        if (addedMatch !== undefined &&
-            addedMatch !== null &&
-            (addedMatch === null || addedMatch === void 0 ? void 0 : addedMatch.length) > 1) {
-            addedStartLineNumer = parseInt(addedMatch[1]);
-        }
-        let removedStartLineNumer;
-        const removedMatch = firstLine === null || firstLine === void 0 ? void 0 : firstLine.match(firstRemovedLineRegex);
-        if (removedMatch !== undefined &&
-            removedMatch !== null &&
-            (removedMatch === null || removedMatch === void 0 ? void 0 : removedMatch.length) > 1) {
-            removedStartLineNumer = parseInt(removedMatch[1]);
-        }
-        if (addedStartLineNumer === undefined ||
-            removedStartLineNumer === undefined) {
-            continue;
-        }
-        // get all todos from the patch map them to the line number
-        let currentAddedLine = addedStartLineNumer;
-        let currentRemovedLine = removedStartLineNumer;
-        // get custom todo matcher for the file
-        const customMatcher = getTodoMatcherForFile(file.filename, customTodoMatcherString);
-        for (const line of lines) {
-            const isAdded = line.startsWith('+');
-            const isDeleted = line.startsWith('-');
-            const todo = getTodoIfFound(line, customMatcher);
-            if (isDeleted) {
-                if (todo !== undefined) {
-                    todos.push({
-                        filename: file.filename,
-                        line: currentRemovedLine,
-                        content: todo,
-                        isAdded: false
-                    });
-                }
-                currentRemovedLine += 1;
+        // blocks are split by diff line and the actual diff
+        const blocks = patch
+            .split(newDiffLineRegex)
+            .filter(block => block !== '' && block !== undefined);
+        // combine diff line and diff to get the actual diff block
+        const diffs = matches.map((_, index) => blocks[index] + blocks[index + 1]);
+        for (const diff of diffs) {
+            const lines = diff.split('\n');
+            if (lines === undefined || lines.length === 0)
+                continue;
+            // remove first line and get the line number where the patch block starts
+            const firstLine = lines.shift();
+            let addedStartLineNumer;
+            const addedMatch = firstLine === null || firstLine === void 0 ? void 0 : firstLine.match(firstAddedLineRegex);
+            if (addedMatch !== undefined &&
+                addedMatch !== null &&
+                (addedMatch === null || addedMatch === void 0 ? void 0 : addedMatch.length) > 1) {
+                addedStartLineNumer = parseInt(addedMatch[1]);
             }
-            else if (isAdded) {
-                if (todo !== undefined) {
-                    todos.push({
-                        filename: file.filename,
-                        line: currentAddedLine,
-                        content: todo,
-                        isAdded: true
-                    });
-                }
-                currentAddedLine += 1;
+            let removedStartLineNumer;
+            const removedMatch = firstLine === null || firstLine === void 0 ? void 0 : firstLine.match(firstRemovedLineRegex);
+            if (removedMatch !== undefined &&
+                removedMatch !== null &&
+                (removedMatch === null || removedMatch === void 0 ? void 0 : removedMatch.length) > 1) {
+                removedStartLineNumer = parseInt(removedMatch[1]);
             }
-            else {
-                currentAddedLine += 1;
-                currentRemovedLine += 1;
+            if (addedStartLineNumer === undefined ||
+                removedStartLineNumer === undefined) {
+                continue;
+            }
+            // get all todos from the patch block map them to the line number
+            let currentAddedLine = addedStartLineNumer;
+            let currentRemovedLine = removedStartLineNumer;
+            // get custom todo matcher for the file
+            const customMatcher = getTodoMatcherForFile(file.filename, customTodoMatcherString);
+            for (const line of lines) {
+                const isAdded = line.startsWith('+');
+                const isDeleted = line.startsWith('-');
+                const todo = getTodoIfFound(line, customMatcher);
+                if (isDeleted) {
+                    if (todo !== undefined) {
+                        todos.push({
+                            filename: file.filename,
+                            line: currentRemovedLine,
+                            content: todo,
+                            isAdded: false
+                        });
+                    }
+                    currentRemovedLine += 1;
+                }
+                else if (isAdded) {
+                    if (todo !== undefined) {
+                        todos.push({
+                            filename: file.filename,
+                            line: currentAddedLine,
+                            content: todo,
+                            isAdded: true
+                        });
+                    }
+                    currentAddedLine += 1;
+                }
+                else {
+                    currentAddedLine += 1;
+                    currentRemovedLine += 1;
+                }
             }
         }
     }
@@ -33398,9 +33432,6 @@ var __webpack_exports__ = {};
 var exports = __webpack_exports__;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-/**
- * The entrypoint for the action.
- */
 const main_1 = __nccwpck_require__(399);
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
 (0, main_1.run)();

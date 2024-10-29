@@ -174,13 +174,13 @@ async function updateCommitStatus(
 
       // Check if the comment contains a markdown checkbox which is checked
       const matches = comment.body?.match(/- \[x\]/gi)
-      if (matches) {
+      if (matches != null) {
         doneCount += 1
         todoCount += 1
       }
       // Check if the comment contains a markdown checkbox which is unchecked
       const uncheckedMatches = comment.body?.match(/- \[ \]/gi)
-      if (uncheckedMatches) {
+      if (uncheckedMatches != null) {
         todoCount += 1
       }
     }
@@ -215,4 +215,30 @@ async function createCommitStatus(
   } catch (error) {
     console.log('Error creating commit status', error)
   }
+}
+
+export async function getTodosForDiff(
+  pat: string,
+  owner: string,
+  repo: string,
+  base: string,
+  head: string
+): Promise<void> {
+  console.log('PAT:', pat)
+  console.log('Owner:', owner)
+  console.log('Repo:', repo)
+  console.log('Base:', base)
+  console.log('Head:', head)
+
+  const octokit = github.getOctokit(pat)
+  const response = await octokit.rest.repos.compareCommitsWithBasehead({
+    owner,
+    repo,
+    basehead: `${base}...${head}`
+  })
+
+  const prDiff = response?.data?.files || []
+
+  const todos = findTodos(prDiff, [], '{}')
+  console.log('Todos:', JSON.stringify(todos))
 }

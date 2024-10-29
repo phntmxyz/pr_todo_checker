@@ -277,3 +277,82 @@ export const mixedTodoMatcherDiff: PrDiff = [
 + // fixme sixth todo`
   }
 ]
+
+export const multiDiffInPatch: PrDiff = [
+  {
+    sha: '111111111',
+    filename: 'first.dart',
+    status: 'added',
+    additions: 1,
+    deletions: 0,
+    changes: 1,
+    blob_url: '',
+    raw_url: '',
+    contents_url: '',
+    patch: `@@ -128,12 +128,14 @@ class A {
+         return B(
+           a: c.a,
+           b: c.b,
++          c: c.c,
+         );
+       }
+       if (c is D) {
+         return B(
+           a: c.a,
+           b: c.b,
++          c: c.c,
+         );
+       }
+       if (c is E) {
+@@ -239,9 +241,15 @@ class B {
+   final String? a;
+   final String? b;
+ 
++  // TODO remove again
++  /// Comment
++  /// comment contains @@ 
++  final bool? c;
++
+   const B({
+     this.a,
+     this.b,
++    this.c,
+   });
+ 
+   @override
+@@ -250,26 +258,31 @@ class B {
+       (other is B &&
+           runtimeType == other.runtimeType &&
+           a == other.a &&
+-          b == other.b);
++          b == other.b &&
++          c == other.c);
+ 
+   @override
+-  int get hashCode => a.hashCode ^ b.hashCode;
++  int get hashCode =>
++      a.hashCode ^ b.hashCode ^ c.hashCode;
+ 
+   @override
+   String toString() {
+     return 'B{ '
+         'a: $a, '
+         'b: $b, '
++        'c: $c'
+         '}';
+   }
+ 
+   B copyWith({
+     String? a,
+     String? b,
++    bool? c,
+   }) {
+     return B(
+       a: a ?? this.a,
+       b: b ?? this.b,
++      c: c ?? this.c,
+     );
+   }
+ }`
+  }
+]
