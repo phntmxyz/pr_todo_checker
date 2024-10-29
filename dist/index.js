@@ -29530,7 +29530,7 @@ function findTodos(prDiff, exclude = [], customTodoMatcherString = '{}') {
     const firstAddedLineRegex = /\+(\d+)/;
     const firstRemovedLineRegex = /-(\d+)/;
     // Find new diff line @@ -128,12 +128,14 @@ class XYZ {
-    const newDiffLineRegex = /(@@ [-|+]?\d+,\d+ [-|+]?\d+,\d+ @@)(@@ [-|+]?\d+,\d+ [-|+]?\d+,\d+ @@)*/gm;
+    const newDiffLineRegex = /(^@@ [-|+]?\d+,\d+ [-|+]?\d+,\d+ @@)(@@ [-|+]?\d+,\d+ [-|+]?\d+,\d+ @@)*/gm;
     const todos = [];
     for (const file of prDiff) {
         const excluded = exclude.some(pattern => (0, minimatch_1.minimatch)(file.filename, pattern));

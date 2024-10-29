@@ -11,7 +11,7 @@ export function findTodos(
   const firstRemovedLineRegex = /-(\d+)/
   // Find new diff line @@ -128,12 +128,14 @@ class XYZ {
   const newDiffLineRegex =
-    /(@@ [-|+]?\d+,\d+ [-|+]?\d+,\d+ @@)(@@ [-|+]?\d+,\d+ [-|+]?\d+,\d+ @@)*/gm
+    /(^@@ [-|+]?\d+,\d+ [-|+]?\d+,\d+ @@)(@@ [-|+]?\d+,\d+ [-|+]?\d+,\d+ @@)*/gm
 
   const todos: Todo[] = []
 
