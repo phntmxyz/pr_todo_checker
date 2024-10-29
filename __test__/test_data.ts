@@ -356,3 +356,35 @@ export const multiDiffInPatch: PrDiff = [
  }`
   }
 ]
+
+export const atAtInDiff: PrDiff = [
+  {
+    sha: '111111111',
+    filename: 'first.dart',
+    status: 'removed',
+    additions: 0,
+    deletions: 5,
+    changes: 5,
+    blob_url: '',
+    raw_url: '',
+    contents_url: '',
+    patch: `@@ -1,7 +1,6 @@
+ import 'dart:async';
+ 
+ import 'package:a/a.dart';
+-import 'package:b/b.dart';
+ import 'package:c/c.dart';
+ import 'package:d/d.dart';
+ 
+ @@ -109,9 +108,6 @@ class A extends B {
+-    // todo: remove
+     a.b();
+   }
+-
+-  @visibleForTesting
+-  B? b;
+ }
+ 
+ /// Comment.`
+  }
+]

@@ -2,7 +2,6 @@
 
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-PR%20Todo%20Checker-blue?logo=github)](https://github.com/marketplace/actions/pr-todo-checker)
 
-[![GitHub Super-Linter](https://github.com/phntmxyz/pr_todo_checker/actions/workflows/linter.yml/badge.svg)](https://github.com/super-linter/super-linter)
 ![CI](https://github.com/phntmxyz/pr_todo_checker/actions/workflows/ci.yml/badge.svg)
 [![Check dist/](https://github.com/phntmxyz/pr_todo_checker/actions/workflows/check-dist.yml/badge.svg)](https://github.com/phntmxyz/pr_todo_checker/actions/workflows/check-dist.yml)
 [![CodeQL](https://github.com/phntmxyz/pr_todo_checker/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/phntmxyz/pr_todo_checker/actions/workflows/codeql-analysis.yml)
