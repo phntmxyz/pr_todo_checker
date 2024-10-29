@@ -174,13 +174,13 @@ async function updateCommitStatus(
 
       // Check if the comment contains a markdown checkbox which is checked
       const matches = comment.body?.match(/- \[x\]/gi)
-      if (matches) {
+      if (matches != null) {
         doneCount += 1
         todoCount += 1
       }
       // Check if the comment contains a markdown checkbox which is unchecked
       const uncheckedMatches = comment.body?.match(/- \[ \]/gi)
-      if (uncheckedMatches) {
+      if (uncheckedMatches != null) {
         todoCount += 1
       }
     }

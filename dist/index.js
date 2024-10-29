@@ -29454,13 +29454,13 @@ function updateCommitStatus(octokit, prNumber, botName) {
                 console.log('Comment:', comment.line, comment.body);
                 // Check if the comment contains a markdown checkbox which is checked
                 const matches = (_b = comment.body) === null || _b === void 0 ? void 0 : _b.match(/- \[x\]/gi);
-                if (matches) {
+                if (matches != null) {
                     doneCount += 1;
                     todoCount += 1;
                 }
                 // Check if the comment contains a markdown checkbox which is unchecked
                 const uncheckedMatches = (_c = comment.body) === null || _c === void 0 ? void 0 : _c.match(/- \[ \]/gi);
-                if (uncheckedMatches) {
+                if (uncheckedMatches != null) {
                     todoCount += 1;
                 }
             }
@@ -33432,9 +33432,6 @@ var __webpack_exports__ = {};
 var exports = __webpack_exports__;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-/**
- * The entrypoint for the action.
- */
 const main_1 = __nccwpck_require__(399);
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
 (0, main_1.run)();

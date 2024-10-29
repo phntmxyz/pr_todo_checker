@@ -2,7 +2,8 @@ import { generateComment } from '../src/comment'
 
 describe('setting comment body and checkbox', () => {
   it('should be used correctly', () => {
-    const commentBodyTemplate = `A new Todo was discovered. If it is not a priority right now, consider marking it for later attention.\n{todo}\n`
+    const commentBodyTemplate =
+      'A new Todo was discovered. If it is not a priority right now, consider marking it for later attention.\n{todo}\n'
     const commentCheckboxTemplate = 'Ignore'
 
     const todo = {
