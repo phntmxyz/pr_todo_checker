@@ -216,3 +216,29 @@ async function createCommitStatus(
     console.log('Error creating commit status', error)
   }
 }
+
+export async function getTodosForDiff(
+  pat: string,
+  owner: string,
+  repo: string,
+  base: string,
+  head: string
+): Promise<void> {
+  console.log('PAT:', pat)
+  console.log('Owner:', owner)
+  console.log('Repo:', repo)
+  console.log('Base:', base)
+  console.log('Head:', head)
+
+  const octokit = github.getOctokit(pat)
+  const response = await octokit.rest.repos.compareCommitsWithBasehead({
+    owner,
+    repo,
+    basehead: `${base}...${head}`
+  })
+
+  const prDiff = response?.data?.files || []
+
+  const todos = findTodos(prDiff, [], '{}')
+  console.log('Todos:', JSON.stringify(todos))
+}

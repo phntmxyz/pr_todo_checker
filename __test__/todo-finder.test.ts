@@ -161,6 +161,22 @@ describe('extract Todos', () => {
     expect(fileTodos).toEqual(expectedTodos)
   })
 
+  it('should find todos in multi diff patches', () => {
+    const customMatcher = '{}'
+    const fileTodos = findTodos(testData.multiDiffInPatch, [], customMatcher)
+
+    const expectedTodos: Todo[] = [
+      {
+        filename: 'first.dart',
+        line: 244,
+        content: 'TODO remove again',
+        isAdded: true
+      }
+    ]
+
+    expect(fileTodos).toEqual(expectedTodos)
+  })
+
   it('should correctly exclude files', () => {
     const exclude = ['**/*.yml', '**/excluded/*']
 
