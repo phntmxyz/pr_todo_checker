@@ -14,6 +14,7 @@ export async function run(): Promise<void> {
     const commentBodyTemplate = core.getInput('comment_body')
     const commentCheckboxTemplate = core.getInput('comment_checkbox')
     const customTodoMatcher = core.getInput('custom_todo_matcher')
+    const customIgnoreMather = core.getInput('custom_ignore_matcher')
 
     const octokit = github.getOctokit(token)
     const botName = 'github-actions[bot]'
@@ -38,7 +39,7 @@ export async function run(): Promise<void> {
     } else if (commentOnTodo) {
       const prDiff = await getPrDiff(octokit, pr.base.sha, pr.head.sha)
 
-      const todos = findTodos(prDiff, excludePatterns, customTodoMatcher)
+      const todos = findTodos(prDiff, excludePatterns, customTodoMatcher, customIgnoreMather)
       console.log('Todos:', JSON.stringify(todos))
       await commentPr(
         octokit,
@@ -239,6 +240,6 @@ export async function getTodosForDiff(
 
   const prDiff = response?.data?.files || []
 
-  const todos = findTodos(prDiff, [], '{}')
+  const todos = findTodos(prDiff, [], '{}', '')
   console.log('Todos:', JSON.stringify(todos))
 }

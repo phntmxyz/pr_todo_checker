@@ -4,7 +4,8 @@ import { minimatch } from 'minimatch'
 export function findTodos(
   prDiff: PrDiff,
   exclude: string[] = [],
-  customTodoMatcherString = '{}'
+  customTodoMatcherString = '{}',
+  customIgnoreMatcherString = ''
 ): Todo[] {
   // Find first number in string
   const firstAddedLineRegex = /\+(\d+)/
@@ -81,7 +82,7 @@ export function findTodos(
         const isAdded = line.startsWith('+')
         const isDeleted = line.startsWith('-')
 
-        const todo = getTodoIfFound(line, customMatcher)
+        const todo = getTodoIfFound(line, customMatcher, customIgnoreMatcherString)
 
         if (isDeleted) {
           if (todo !== undefined) {
@@ -133,9 +134,10 @@ function getTodoMatcherForFile(
 
 function getTodoIfFound(
   line: string,
-  customMatcher: string[] = []
+  customMatcher: string[] = [],
+  customIgnoreMatcher: string
 ): string | undefined {
-  const regex = new RegExp(buildTodoMatcher(customMatcher), 'i')
+  const regex = new RegExp(buildTodoMatcher(customMatcher, customIgnoreMatcher), 'i')
   const match = line.match(regex)
   if (match === undefined || match === null || match?.length === 0) return
   // remove html closing comment tag if present
@@ -143,7 +145,7 @@ function getTodoIfFound(
   return todo
 }
 
-function buildTodoMatcher(customMatcher: string[]): string {
+function buildTodoMatcher(customMatcher: string[], customIgnoreMatcher: string): string {
   let todoMatcher: string[]
   if (customMatcher.length === 0) {
     // default todo matcher
@@ -168,18 +170,25 @@ function buildTodoMatcher(customMatcher: string[]): string {
     '.'
   ]
 
-  const escapedPatterns = todoMatcher.map(pattern => {
-    let escapedPattern = ''
+  const escapePattern = (pattern: string) => {
+    let escapedPattern = '';
     for (const char of pattern) {
       if (needToEscape.includes(char)) {
-        escapedPattern += `\\${char}`
+        escapedPattern += `\\${char}`;
       } else {
-        escapedPattern += char
+        escapedPattern += char;
       }
     }
-    return escapedPattern
-  })
+    return escapedPattern;
+  }
 
-  const regex = `(?:${escapedPatterns.join('|')}).*?(TODO.*|FIXME.*)`
+  const escapedTodoPatterns = todoMatcher.map(matcher => escapePattern(matcher))
+  const escapedIgnorePatterns = escapePattern(customIgnoreMatcher)
+
+  const ignoreRegex = Boolean(customIgnoreMatcher)
+    ? `(?!.*${escapedIgnorePatterns}.*)` 
+    : ''
+
+  const regex = `(?:${escapedTodoPatterns.join('|')})${ignoreRegex}.*?(TODO.*|FIXME.*)`
   return regex
 }

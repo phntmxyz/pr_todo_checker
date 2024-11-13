@@ -301,3 +301,61 @@ describe('custom todo matcher', () => {
     expect(fileTodos).toEqual(expectedTodos)
   })
 })
+
+describe('custom ignore matcher', () => {
+  it('should ignore matches', () => {
+    const customIgnoreMatcher = "comment"
+    const fileTodos = findTodos(testData.mixedTodoDiff,[], undefined, customIgnoreMatcher)
+
+    const expectedTodos: Todo[] = [
+      {
+        filename: 'README.md',
+        line: 31,
+        content: 'TODO here',
+        isAdded: true
+      },
+      {
+        filename: 'lib/second.js',
+        line: 26,
+        content: 'TODO - upper case with much space',
+        isAdded: true
+      },
+      {
+        filename: 'lib/second.js',
+        line: 27,
+        content: 'todo - lower case with space',
+        isAdded: true
+      },
+      {
+        filename: 'lib/second.js',
+        line: 28,
+        content: 'todo - lower case no space',
+        isAdded: true
+      }
+    ]
+    
+    const expectedIgnoredTodos: Todo[] = [
+      {
+        filename: 'lib/first.js',
+        line: 21,
+        content: 'TODO removed comment',
+        isAdded: false
+      },
+      {
+        filename: 'lib/second.js',
+        line: 30,
+        content: 'todo comment',
+        isAdded: true
+      },
+      {
+        filename: 'lib/second.js',
+        line: 33,
+        content: 'todo - In comment block',
+        isAdded: true
+      }
+    ]
+
+    expect(fileTodos).toEqual(expectedTodos)
+    expect(fileTodos).not.toContain(expectedIgnoredTodos)
+  })
+})
