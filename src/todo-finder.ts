@@ -82,7 +82,11 @@ export function findTodos(
         const isAdded = line.startsWith('+')
         const isDeleted = line.startsWith('-')
 
-        const todo = getTodoIfFound(line, customMatcher, customIgnoreMatcherString)
+        const todo = getTodoIfFound(
+          line,
+          customMatcher,
+          customIgnoreMatcherString
+        )
 
         if (isDeleted) {
           if (todo !== undefined) {
@@ -137,7 +141,10 @@ function getTodoIfFound(
   customMatcher: string[] = [],
   customIgnoreMatcher: string
 ): string | undefined {
-  const regex = new RegExp(buildTodoMatcher(customMatcher, customIgnoreMatcher), 'i')
+  const regex = new RegExp(
+    buildTodoMatcher(customMatcher, customIgnoreMatcher),
+    'i'
+  )
   const match = line.match(regex)
   if (match === undefined || match === null || match?.length === 0) return
   // remove html closing comment tag if present
@@ -145,7 +152,10 @@ function getTodoIfFound(
   return todo
 }
 
-function buildTodoMatcher(customMatcher: string[], customIgnoreMatcher: string): string {
+function buildTodoMatcher(
+  customMatcher: string[],
+  customIgnoreMatcher: string
+): string {
   let todoMatcher: string[]
   if (customMatcher.length === 0) {
     // default todo matcher
@@ -171,22 +181,22 @@ function buildTodoMatcher(customMatcher: string[], customIgnoreMatcher: string):
   ]
 
   const escapePattern = (pattern: string) => {
-    let escapedPattern = '';
+    let escapedPattern = ''
     for (const char of pattern) {
       if (needToEscape.includes(char)) {
-        escapedPattern += `\\${char}`;
+        escapedPattern += `\\${char}`
       } else {
-        escapedPattern += char;
+        escapedPattern += char
       }
     }
-    return escapedPattern;
+    return escapedPattern
   }
 
   const escapedTodoPatterns = todoMatcher.map(matcher => escapePattern(matcher))
   const escapedIgnorePatterns = escapePattern(customIgnoreMatcher)
 
   const ignoreRegex = Boolean(customIgnoreMatcher)
-    ? `(?!.*${escapedIgnorePatterns}.*)` 
+    ? `(?!.*${escapedIgnorePatterns}.*)`
     : ''
 
   const regex = `(?:${escapedTodoPatterns.join('|')})${ignoreRegex}.*?(TODO.*|FIXME.*)`

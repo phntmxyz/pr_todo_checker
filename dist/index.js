@@ -29330,6 +29330,7 @@ function run() {
             const commentBodyTemplate = core.getInput('comment_body');
             const commentCheckboxTemplate = core.getInput('comment_checkbox');
             const customTodoMatcher = core.getInput('custom_todo_matcher');
+            const customIgnoreMather = core.getInput('custom_ignore_matcher');
             const octokit = github.getOctokit(token);
             const botName = 'github-actions[bot]';
             const pr = github.context.payload.pull_request;
@@ -29348,7 +29349,7 @@ function run() {
             }
             else if (commentOnTodo) {
                 const prDiff = yield getPrDiff(octokit, pr.base.sha, pr.head.sha);
-                const todos = (0, todo_finder_1.findTodos)(prDiff, excludePatterns, customTodoMatcher);
+                const todos = (0, todo_finder_1.findTodos)(prDiff, excludePatterns, customTodoMatcher, customIgnoreMather);
                 console.log('Todos:', JSON.stringify(todos));
                 yield commentPr(octokit, pr.number, botName, todos, commentBodyTemplate, commentCheckboxTemplate);
             }
@@ -29508,7 +29509,7 @@ function getTodosForDiff(pat, owner, repo, base, head) {
             basehead: `${base}...${head}`
         });
         const prDiff = ((_a = response === null || response === void 0 ? void 0 : response.data) === null || _a === void 0 ? void 0 : _a.files) || [];
-        const todos = (0, todo_finder_1.findTodos)(prDiff, [], '{}');
+        const todos = (0, todo_finder_1.findTodos)(prDiff, [], '{}', '');
         console.log('Todos:', JSON.stringify(todos));
     });
 }
@@ -29525,7 +29526,7 @@ exports.getTodosForDiff = getTodosForDiff;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.findTodos = void 0;
 const minimatch_1 = __nccwpck_require__(4501);
-function findTodos(prDiff, exclude = [], customTodoMatcherString = '{}') {
+function findTodos(prDiff, exclude = [], customTodoMatcherString = '{}', customIgnoreMatcherString = '') {
     // Find first number in string
     const firstAddedLineRegex = /\+(\d+)/;
     const firstRemovedLineRegex = /-(\d+)/;
@@ -29579,7 +29580,7 @@ function findTodos(prDiff, exclude = [], customTodoMatcherString = '{}') {
             for (const line of lines) {
                 const isAdded = line.startsWith('+');
                 const isDeleted = line.startsWith('-');
-                const todo = getTodoIfFound(line, customMatcher);
+                const todo = getTodoIfFound(line, customMatcher, customIgnoreMatcherString);
                 if (isDeleted) {
                     if (todo !== undefined) {
                         todos.push({
@@ -29624,8 +29625,8 @@ function getTodoMatcherForFile(filename, customTodoMatcherString) {
     }
     return customMatcher;
 }
-function getTodoIfFound(line, customMatcher = []) {
-    const regex = new RegExp(buildTodoMatcher(customMatcher), 'i');
+function getTodoIfFound(line, customMatcher = [], customIgnoreMatcher) {
+    const regex = new RegExp(buildTodoMatcher(customMatcher, customIgnoreMatcher), 'i');
     const match = line.match(regex);
     if (match === undefined || match === null || (match === null || match === void 0 ? void 0 : match.length) === 0)
         return;
@@ -29633,7 +29634,7 @@ function getTodoIfFound(line, customMatcher = []) {
     const todo = match[1].replace('-->', '').trim();
     return todo;
 }
-function buildTodoMatcher(customMatcher) {
+function buildTodoMatcher(customMatcher, customIgnoreMatcher) {
     let todoMatcher;
     if (customMatcher.length === 0) {
         // default todo matcher
@@ -29657,7 +29658,7 @@ function buildTodoMatcher(customMatcher) {
         '$',
         '.'
     ];
-    const escapedPatterns = todoMatcher.map(pattern => {
+    const escapePattern = (pattern) => {
         let escapedPattern = '';
         for (const char of pattern) {
             if (needToEscape.includes(char)) {
@@ -29668,8 +29669,13 @@ function buildTodoMatcher(customMatcher) {
             }
         }
         return escapedPattern;
-    });
-    const regex = `(?:${escapedPatterns.join('|')}).*?(TODO.*|FIXME.*)`;
+    };
+    const escapedTodoPatterns = todoMatcher.map(matcher => escapePattern(matcher));
+    const escapedIgnorePatterns = escapePattern(customIgnoreMatcher);
+    const ignoreRegex = Boolean(customIgnoreMatcher)
+        ? `(?!.*${escapedIgnorePatterns}.*)`
+        : '';
+    const regex = `(?:${escapedTodoPatterns.join('|')})${ignoreRegex}.*?(TODO.*|FIXME.*)`;
     return regex;
 }
 

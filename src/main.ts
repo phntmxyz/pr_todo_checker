@@ -39,7 +39,12 @@ export async function run(): Promise<void> {
     } else if (commentOnTodo) {
       const prDiff = await getPrDiff(octokit, pr.base.sha, pr.head.sha)
 
-      const todos = findTodos(prDiff, excludePatterns, customTodoMatcher, customIgnoreMather)
+      const todos = findTodos(
+        prDiff,
+        excludePatterns,
+        customTodoMatcher,
+        customIgnoreMather
+      )
       console.log('Todos:', JSON.stringify(todos))
       await commentPr(
         octokit,

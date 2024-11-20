@@ -304,8 +304,13 @@ describe('custom todo matcher', () => {
 
 describe('custom ignore matcher', () => {
   it('should ignore matches', () => {
-    const customIgnoreMatcher = "comment"
-    const fileTodos = findTodos(testData.mixedTodoDiff,[], undefined, customIgnoreMatcher)
+    const customIgnoreMatcher = 'comment'
+    const fileTodos = findTodos(
+      testData.mixedTodoDiff,
+      [],
+      undefined,
+      customIgnoreMatcher
+    )
 
     const expectedTodos: Todo[] = [
       {
@@ -333,7 +338,7 @@ describe('custom ignore matcher', () => {
         isAdded: true
       }
     ]
-    
+
     const expectedIgnoredTodos: Todo[] = [
       {
         filename: 'lib/first.js',
