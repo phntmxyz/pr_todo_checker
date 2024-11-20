@@ -180,7 +180,7 @@ function buildTodoMatcher(
     '.'
   ]
 
-  const escapePattern = (pattern: string) => {
+  const escapePattern = (pattern: string): string => {
     let escapedPattern = ''
     for (const char of pattern) {
       if (needToEscape.includes(char)) {
@@ -195,7 +195,7 @@ function buildTodoMatcher(
   const escapedTodoPatterns = todoMatcher.map(matcher => escapePattern(matcher))
   const escapedIgnorePatterns = escapePattern(customIgnoreMatcher)
 
-  const ignoreRegex = Boolean(customIgnoreMatcher)
+  const ignoreRegex = customIgnoreMatcher
     ? `(?!.*${escapedIgnorePatterns}.*)`
     : ''
 
