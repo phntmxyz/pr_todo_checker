@@ -29672,7 +29672,7 @@ function buildTodoMatcher(customMatcher, customIgnoreMatcher) {
     };
     const escapedTodoPatterns = todoMatcher.map(matcher => escapePattern(matcher));
     const escapedIgnorePatterns = escapePattern(customIgnoreMatcher);
-    const ignoreRegex = Boolean(customIgnoreMatcher)
+    const ignoreRegex = customIgnoreMatcher
         ? `(?!.*${escapedIgnorePatterns}.*)`
         : '';
     const regex = `(?:${escapedTodoPatterns.join('|')})${ignoreRegex}.*?(TODO.*|FIXME.*)`;
