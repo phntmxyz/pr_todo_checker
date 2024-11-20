@@ -75,6 +75,10 @@ You can configure the action further by providing inputs:
   comment. Use `{todo}` to insert the Todo content
 - `custom_todo_matcher`: (**optional**) Add custom comment indicators to match
   TODOs. Default matches `//`, `*` and `#` followed by `TODO` or `FIXME`.
+- `custom_ignore_matcher`: (**optional**) Add custom regex to ignore TODOs that
+  match in the same line. Example: Setting
+  `custom_ignore_matcher: "/.*ignore.*/"` will ignore TODOs like
+  `// TODO ignore`.
 
 ```yaml
 steps:
