@@ -38,8 +38,7 @@ inputs:
     required: false
     default: '{}'
   custom_ignore_matcher:
-    description: "Add custom regex to ignore TODOs that match in the same 
-      line.\
+    description: "Add custom regex to ignore TODOs that match in the same line.\
       Example: my-issue-website.com"
     required: false
 
