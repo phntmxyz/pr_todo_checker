@@ -37,6 +37,11 @@ inputs:
       Example: {'js': ['//', '/*'], 'py': ['#']}"
     required: false
     default: '{}'
+  custom_ignore_matcher:
+    description: "Add custom regex to ignore TODOs that match in the same 
+      line.\
+      Example: my-issue-website.com"
+    required: false
 
 runs:
   using: 'node20'
