@@ -29,6 +29,11 @@ const argv = yargs(hideBin(process.argv))
     demandOption: true,
     describe: 'Head branch'
   })
+  .option('pr', {
+    type: 'number',
+    demandOption: false,
+    describe: 'Pull Request number (optional, to test review thread logic)'
+  })
   .parseSync()
 
-getTodosForDiff(argv.pat, argv.owner, argv.repo, argv.base, argv.head)
+getTodosForDiff(argv.pat, argv.owner, argv.repo, argv.base, argv.head, argv.pr)

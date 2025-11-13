@@ -13,6 +13,8 @@ export async function run(): Promise<void> {
     const commentOnTodo = core.getInput('comment_on_todo') === 'true'
     const commentBodyTemplate = core.getInput('comment_body')
     const commentCheckboxTemplate = core.getInput('comment_checkbox')
+    const enableIgnoreCheckbox =
+      core.getInput('enable_ignore_checkbox') === 'true'
     const customTodoMatcher = core.getInput('custom_todo_matcher')
     const customIgnoreMather = core.getInput('custom_ignore_matcher')
 
@@ -52,7 +54,8 @@ export async function run(): Promise<void> {
         botName,
         todos,
         commentBodyTemplate,
-        commentCheckboxTemplate
+        commentCheckboxTemplate,
+        enableIgnoreCheckbox
       )
     }
   } catch (error) {
@@ -87,7 +90,8 @@ async function commentPr(
   botName: string,
   todos: Todo[],
   commentBodyTemplate: string,
-  commentCheckboxTemplate: string
+  commentCheckboxTemplate: string,
+  enableIgnoreCheckbox: boolean
 ): Promise<void> {
   const { owner, repo } = github.context.repo
   const issueNumber = github.context.payload.pull_request?.number
@@ -139,7 +143,12 @@ async function commentPr(
       owner,
       repo,
       pull_number: prNumber,
-      body: generateComment(commentBodyTemplate, commentCheckboxTemplate, todo),
+      body: generateComment(
+        commentBodyTemplate,
+        commentCheckboxTemplate,
+        todo,
+        enableIgnoreCheckbox
+      ),
       commit_id: headSha,
       path: todo.filename,
       side: 'RIGHT',
@@ -157,12 +166,103 @@ async function commentPr(
   }
 }
 
+interface GraphQLReviewThreadsResult {
+  repository?: {
+    pullRequest?: {
+      reviewThreads?: {
+        nodes: {
+          id: string
+          isResolved: boolean
+          comments: {
+            nodes: {
+              databaseId?: number | null
+            }[]
+          }
+        }[]
+      }
+    } | null
+  } | null
+}
+
+const REVIEW_THREADS_QUERY = `
+  query($owner: String!, $repo: String!, $prNumber: Int!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $prNumber) {
+        reviewThreads(first: 100) {
+          nodes {
+            id
+            isResolved
+            comments(first: 10) {
+              nodes {
+                databaseId
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`
+
+export function extractResolvedCommentIds(
+  graphqlResult: GraphQLReviewThreadsResult | null
+): Set<number> {
+  const resolvedCommentIds = new Set<number>()
+
+  if (graphqlResult?.repository?.pullRequest?.reviewThreads?.nodes) {
+    for (const thread of graphqlResult.repository.pullRequest.reviewThreads
+      .nodes) {
+      if (thread.isResolved) {
+        for (const comment of thread.comments.nodes) {
+          if (comment.databaseId) {
+            resolvedCommentIds.add(comment.databaseId)
+          }
+        }
+      }
+    }
+  }
+
+  return resolvedCommentIds
+}
+
+async function getResolvedCommentIds(
+  octokit: ReturnType<typeof github.getOctokit>,
+  owner: string,
+  repo: string,
+  prNumber: number
+): Promise<Set<number>> {
+  try {
+    const result = await octokit.graphql<GraphQLReviewThreadsResult>(
+      REVIEW_THREADS_QUERY,
+      {
+        owner,
+        repo,
+        prNumber
+      }
+    )
+
+    return extractResolvedCommentIds(result)
+  } catch (error) {
+    console.log('Error fetching review threads:', error)
+    return new Set<number>()
+  }
+}
+
 async function updateCommitStatus(
   octokit: ReturnType<typeof github.getOctokit>,
   prNumber: number,
   botName: string
 ): Promise<void> {
   const { owner, repo } = github.context.repo
+
+  // Get all review threads to check which are resolved
+  // Using GraphQL API because REST API doesn't have threads endpoint
+  const resolvedCommentIds = await getResolvedCommentIds(
+    octokit,
+    owner,
+    repo,
+    prNumber
+  )
 
   // Get all comments on the pull request
   const { data: comments } = await octokit.rest.pulls.listReviewComments({
@@ -171,6 +271,7 @@ async function updateCommitStatus(
     pull_number: prNumber
   })
   console.log('Found comments:', comments.length)
+  console.log('Resolved comment IDs:', Array.from(resolvedCommentIds))
 
   let todoCount = 0
   let doneCount = 0
@@ -184,6 +285,12 @@ async function updateCommitStatus(
           repo,
           comment_id: comment.id
         })
+        continue
+      }
+
+      // Skip resolved comments - they should not be counted
+      if (resolvedCommentIds.has(comment.id)) {
+        console.log('Skipping resolved comment:', comment.id)
         continue
       }
 
@@ -239,13 +346,15 @@ export async function getTodosForDiff(
   owner: string,
   repo: string,
   base: string,
-  head: string
+  head: string,
+  prNumber?: number
 ): Promise<void> {
   console.log('PAT:', pat)
   console.log('Owner:', owner)
   console.log('Repo:', repo)
   console.log('Base:', base)
   console.log('Head:', head)
+  console.log('PR Number:', prNumber || 'not provided')
 
   const octokit = github.getOctokit(pat)
   const response = await octokit.rest.repos.compareCommitsWithBasehead({
@@ -258,4 +367,86 @@ export async function getTodosForDiff(
 
   const todos = findTodos(prDiff, [], '{}', '')
   console.log('Todos:', JSON.stringify(todos))
+
+  // If PR number is provided, also test the review thread logic
+  if (prNumber) {
+    console.log('\n--- Testing Review Thread Logic ---')
+    await testUpdateCommitStatus(octokit, owner, repo, prNumber)
+  }
+}
+
+async function testUpdateCommitStatus(
+  octokit: ReturnType<typeof github.getOctokit>,
+  owner: string,
+  repo: string,
+  prNumber: number
+): Promise<void> {
+  const botName = 'github-actions[bot]'
+
+  // Get all review threads to check which are resolved
+  console.log('Fetching review threads via GraphQL...')
+  const resolvedCommentIds = await getResolvedCommentIds(
+    octokit,
+    owner,
+    repo,
+    prNumber
+  )
+
+  // Get all comments on the pull request
+  const { data: comments } = await octokit.rest.pulls.listReviewComments({
+    owner,
+    repo,
+    pull_number: prNumber
+  })
+  console.log(`\nFound ${comments.length} total comments`)
+  console.log('Resolved comment IDs:', Array.from(resolvedCommentIds))
+
+  let todoCount = 0
+  let doneCount = 0
+  let outdatedCount = 0
+  let resolvedCount = 0
+
+  for (const comment of comments) {
+    if (comment.user?.login === botName) {
+      // If position is null or undefined, the comment is outdated
+      if (comment.position === null || comment.position === undefined) {
+        console.log(
+          `Comment ${comment.id} is OUTDATED (would be deleted in real run)`
+        )
+        outdatedCount++
+        continue
+      }
+
+      // Skip resolved comments
+      if (resolvedCommentIds.has(comment.id)) {
+        console.log(`Comment ${comment.id} is RESOLVED (skipping count)`)
+        resolvedCount++
+        continue
+      }
+
+      console.log(
+        `Comment ${comment.id} at line ${comment.line}:`,
+        comment.body
+      )
+
+      // Check if the comment contains a markdown checkbox which is checked
+      const matches = comment.body?.match(/- \[x\]/gi)
+      if (matches != null) {
+        doneCount += 1
+        todoCount += 1
+      }
+      // Check if the comment contains a markdown checkbox which is unchecked
+      const uncheckedMatches = comment.body?.match(/- \[ \]/gi)
+      if (uncheckedMatches != null) {
+        todoCount += 1
+      }
+    }
+  }
+
+  console.log('\n--- Summary ---')
+  console.log(`Outdated comments: ${outdatedCount}`)
+  console.log(`Resolved comments: ${resolvedCount}`)
+  console.log(`Done TODOs: ${doneCount}`)
+  console.log(`Total active TODOs: ${todoCount}`)
+  console.log(`Status: ${doneCount === todoCount ? 'SUCCESS' : 'FAILURE'}`)
 }
