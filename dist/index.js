@@ -29314,7 +29314,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getTodosForDiff = exports.run = void 0;
+exports.getTodosForDiff = exports.extractResolvedCommentIds = exports.run = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
 const todo_finder_1 = __nccwpck_require__(2461);
@@ -29437,10 +29437,66 @@ function commentPr(octokit, prNumber, botName, todos, commentBodyTemplate, comme
         }
     });
 }
+const REVIEW_THREADS_QUERY = `
+  query($owner: String!, $repo: String!, $prNumber: Int!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $prNumber) {
+        reviewThreads(first: 100) {
+          nodes {
+            id
+            isResolved
+            comments(first: 10) {
+              nodes {
+                databaseId
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+function extractResolvedCommentIds(graphqlResult) {
+    var _a, _b, _c;
+    const resolvedCommentIds = new Set();
+    if ((_c = (_b = (_a = graphqlResult === null || graphqlResult === void 0 ? void 0 : graphqlResult.repository) === null || _a === void 0 ? void 0 : _a.pullRequest) === null || _b === void 0 ? void 0 : _b.reviewThreads) === null || _c === void 0 ? void 0 : _c.nodes) {
+        for (const thread of graphqlResult.repository.pullRequest.reviewThreads
+            .nodes) {
+            if (thread.isResolved) {
+                for (const comment of thread.comments.nodes) {
+                    if (comment.databaseId) {
+                        resolvedCommentIds.add(comment.databaseId);
+                    }
+                }
+            }
+        }
+    }
+    return resolvedCommentIds;
+}
+exports.extractResolvedCommentIds = extractResolvedCommentIds;
+function getResolvedCommentIds(octokit, owner, repo, prNumber) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const result = yield octokit.graphql(REVIEW_THREADS_QUERY, {
+                owner,
+                repo,
+                prNumber
+            });
+            return extractResolvedCommentIds(result);
+        }
+        catch (error) {
+            console.log('Error fetching review threads:', error);
+            return new Set();
+        }
+    });
+}
 function updateCommitStatus(octokit, prNumber, botName) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a, _b, _c;
         const { owner, repo } = github.context.repo;
+        // Get all review threads to check which are resolved
+        // Using GraphQL API because REST API doesn't have threads endpoint
+        const resolvedCommentIds = yield getResolvedCommentIds(octokit, owner, repo, prNumber);
         // Get all comments on the pull request
         const { data: comments } = yield octokit.rest.pulls.listReviewComments({
             owner,
@@ -29448,6 +29504,7 @@ function updateCommitStatus(octokit, prNumber, botName) {
             pull_number: prNumber
         });
         console.log('Found comments:', comments.length);
+        console.log('Resolved comment IDs:', Array.from(resolvedCommentIds));
         let todoCount = 0;
         let doneCount = 0;
         for (const comment of comments) {
@@ -29460,6 +29517,11 @@ function updateCommitStatus(octokit, prNumber, botName) {
                         repo,
                         comment_id: comment.id
                     });
+                    continue;
+                }
+                // Skip resolved comments - they should not be counted
+                if (resolvedCommentIds.has(comment.id)) {
+                    console.log('Skipping resolved comment:', comment.id);
                     continue;
                 }
                 console.log('Comment:', comment.line, comment.body);
@@ -29504,7 +29566,7 @@ function createCommitStatus(octokit, doneCount, todoCount) {
         }
     });
 }
-function getTodosForDiff(pat, owner, repo, base, head) {
+function getTodosForDiff(pat, owner, repo, base, head, prNumber) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a;
         console.log('PAT:', pat);
@@ -29512,6 +29574,7 @@ function getTodosForDiff(pat, owner, repo, base, head) {
         console.log('Repo:', repo);
         console.log('Base:', base);
         console.log('Head:', head);
+        console.log('PR Number:', prNumber || 'not provided');
         const octokit = github.getOctokit(pat);
         const response = yield octokit.rest.repos.compareCommitsWithBasehead({
             owner,
@@ -29521,9 +29584,69 @@ function getTodosForDiff(pat, owner, repo, base, head) {
         const prDiff = ((_a = response === null || response === void 0 ? void 0 : response.data) === null || _a === void 0 ? void 0 : _a.files) || [];
         const todos = (0, todo_finder_1.findTodos)(prDiff, [], '{}', '');
         console.log('Todos:', JSON.stringify(todos));
+        // If PR number is provided, also test the review thread logic
+        if (prNumber) {
+            console.log('\n--- Testing Review Thread Logic ---');
+            yield testUpdateCommitStatus(octokit, owner, repo, prNumber);
+        }
     });
 }
 exports.getTodosForDiff = getTodosForDiff;
+function testUpdateCommitStatus(octokit, owner, repo, prNumber) {
+    return __awaiter(this, void 0, void 0, function* () {
+        var _a, _b, _c;
+        const botName = 'github-actions[bot]';
+        // Get all review threads to check which are resolved
+        console.log('Fetching review threads via GraphQL...');
+        const resolvedCommentIds = yield getResolvedCommentIds(octokit, owner, repo, prNumber);
+        // Get all comments on the pull request
+        const { data: comments } = yield octokit.rest.pulls.listReviewComments({
+            owner,
+            repo,
+            pull_number: prNumber
+        });
+        console.log(`\nFound ${comments.length} total comments`);
+        console.log('Resolved comment IDs:', Array.from(resolvedCommentIds));
+        let todoCount = 0;
+        let doneCount = 0;
+        let outdatedCount = 0;
+        let resolvedCount = 0;
+        for (const comment of comments) {
+            if (((_a = comment.user) === null || _a === void 0 ? void 0 : _a.login) === botName) {
+                // If position is null or undefined, the comment is outdated
+                if (comment.position === null || comment.position === undefined) {
+                    console.log(`Comment ${comment.id} is OUTDATED (would be deleted in real run)`);
+                    outdatedCount++;
+                    continue;
+                }
+                // Skip resolved comments
+                if (resolvedCommentIds.has(comment.id)) {
+                    console.log(`Comment ${comment.id} is RESOLVED (skipping count)`);
+                    resolvedCount++;
+                    continue;
+                }
+                console.log(`Comment ${comment.id} at line ${comment.line}:`, comment.body);
+                // Check if the comment contains a markdown checkbox which is checked
+                const matches = (_b = comment.body) === null || _b === void 0 ? void 0 : _b.match(/- \[x\]/gi);
+                if (matches != null) {
+                    doneCount += 1;
+                    todoCount += 1;
+                }
+                // Check if the comment contains a markdown checkbox which is unchecked
+                const uncheckedMatches = (_c = comment.body) === null || _c === void 0 ? void 0 : _c.match(/- \[ \]/gi);
+                if (uncheckedMatches != null) {
+                    todoCount += 1;
+                }
+            }
+        }
+        console.log('\n--- Summary ---');
+        console.log(`Outdated comments: ${outdatedCount}`);
+        console.log(`Resolved comments: ${resolvedCount}`);
+        console.log(`Done TODOs: ${doneCount}`);
+        console.log(`Total active TODOs: ${todoCount}`);
+        console.log(`Status: ${doneCount === todoCount ? 'SUCCESS' : 'FAILURE'}`);
+    });
+}
 
 
 /***/ }),
