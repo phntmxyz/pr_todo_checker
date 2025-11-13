@@ -176,6 +176,17 @@ async function updateCommitStatus(
   let doneCount = 0
   for (const comment of comments) {
     if (comment.user?.login === botName) {
+      // If position is null or undefined, the comment is outdated and should be deleted
+      if (comment.position === null || comment.position === undefined) {
+        console.log('Deleting outdated comment:', comment.id)
+        await octokit.rest.pulls.deleteReviewComment({
+          owner,
+          repo,
+          comment_id: comment.id
+        })
+        continue
+      }
+
       console.log('Comment:', comment.line, comment.body)
 
       // Check if the comment contains a markdown checkbox which is checked

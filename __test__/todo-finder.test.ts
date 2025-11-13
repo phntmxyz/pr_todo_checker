@@ -214,6 +214,33 @@ describe('extract Todos', () => {
     ]
     expect(fileTodos).toEqual(expectedTodos)
   })
+
+  it('should correctly detect completed/removed todos', () => {
+    const fileTodos = findTodos(testData.completedTodoDiff)
+
+    const expectedTodos: Todo[] = [
+      {
+        filename: 'lib/feature.js',
+        line: 18,
+        content: 'TODO: Make these configurable.',
+        isAdded: false
+      },
+      {
+        filename: 'lib/backend.js',
+        line: 100,
+        content: 'TODO: Add connection pooling',
+        isAdded: false
+      }
+    ]
+    expect(fileTodos).toEqual(expectedTodos)
+
+    // Verify that all todos are marked as removed (isAdded: false)
+    expect(fileTodos.every(todo => !todo.isAdded)).toBe(true)
+
+    // Verify that no new todos were added
+    const addedTodos = fileTodos.filter(todo => todo.isAdded)
+    expect(addedTodos).toHaveLength(0)
+  })
 })
 
 describe('custom todo matcher', () => {

@@ -388,3 +388,45 @@ export const atAtInDiff: PrDiff = [
  /// Comment.`
   }
 ]
+
+export const completedTodoDiff: PrDiff = [
+  {
+    sha: '222222222',
+    filename: 'lib/feature.js',
+    status: 'modified',
+    additions: 1,
+    deletions: 2,
+    changes: 3,
+    blob_url: '',
+    raw_url: '',
+    contents_url: '',
+    patch: `@@ -15,8 +15,7 @@ class FeatureA {
+ 
+ function initialize() {
+   const config = getConfig()
+-  // TODO: Make these configurable.
+-  const settings = { timeout: 5000 }
++  const settings = config.settings
+   return new FeatureA(settings)
+ }`
+  },
+  {
+    sha: '222222222',
+    filename: 'lib/backend.js',
+    status: 'modified',
+    additions: 2,
+    deletions: 1,
+    changes: 3,
+    blob_url: '',
+    raw_url: '',
+    contents_url: '',
+    patch: `@@ -98,7 +98,8 @@ class Backend {
+ 
+ async function connect() {
+-  // TODO: Add connection pooling
++  // Connection pooling implemented
++  const pool = createConnectionPool()
+   return await connectToDatabase()
+ }`
+  }
+]
