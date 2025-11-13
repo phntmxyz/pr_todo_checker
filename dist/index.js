@@ -29452,6 +29452,16 @@ function updateCommitStatus(octokit, prNumber, botName) {
         let doneCount = 0;
         for (const comment of comments) {
             if (((_a = comment.user) === null || _a === void 0 ? void 0 : _a.login) === botName) {
+                // If position is null or undefined, the comment is outdated and should be deleted
+                if (comment.position === null || comment.position === undefined) {
+                    console.log('Deleting outdated comment:', comment.id);
+                    yield octokit.rest.pulls.deleteReviewComment({
+                        owner,
+                        repo,
+                        comment_id: comment.id
+                    });
+                    continue;
+                }
                 console.log('Comment:', comment.line, comment.body);
                 // Check if the comment contains a markdown checkbox which is checked
                 const matches = (_b = comment.body) === null || _b === void 0 ? void 0 : _b.match(/- \[x\]/gi);
