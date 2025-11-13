@@ -31,6 +31,12 @@ inputs:
       message.'
     required: false
     default: 'Ignore'
+  enable_ignore_checkbox:
+    description:
+      'Enable the ignore checkbox in TODO comments. When disabled, users should
+      use GitHub''s native "Resolve conversation" feature instead.'
+    required: false
+    default: 'false'
   custom_todo_matcher:
     description: "Add custom comment indicators for specific file types. Use
       JSON format.\

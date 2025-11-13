@@ -13,6 +13,8 @@ export async function run(): Promise<void> {
     const commentOnTodo = core.getInput('comment_on_todo') === 'true'
     const commentBodyTemplate = core.getInput('comment_body')
     const commentCheckboxTemplate = core.getInput('comment_checkbox')
+    const enableIgnoreCheckbox =
+      core.getInput('enable_ignore_checkbox') === 'true'
     const customTodoMatcher = core.getInput('custom_todo_matcher')
     const customIgnoreMather = core.getInput('custom_ignore_matcher')
 
@@ -52,7 +54,8 @@ export async function run(): Promise<void> {
         botName,
         todos,
         commentBodyTemplate,
-        commentCheckboxTemplate
+        commentCheckboxTemplate,
+        enableIgnoreCheckbox
       )
     }
   } catch (error) {
@@ -87,7 +90,8 @@ async function commentPr(
   botName: string,
   todos: Todo[],
   commentBodyTemplate: string,
-  commentCheckboxTemplate: string
+  commentCheckboxTemplate: string,
+  enableIgnoreCheckbox: boolean
 ): Promise<void> {
   const { owner, repo } = github.context.repo
   const issueNumber = github.context.payload.pull_request?.number
@@ -139,7 +143,12 @@ async function commentPr(
       owner,
       repo,
       pull_number: prNumber,
-      body: generateComment(commentBodyTemplate, commentCheckboxTemplate, todo),
+      body: generateComment(
+        commentBodyTemplate,
+        commentCheckboxTemplate,
+        todo,
+        enableIgnoreCheckbox
+      ),
       commit_id: headSha,
       path: todo.filename,
       side: 'RIGHT',
@@ -155,6 +164,24 @@ async function commentPr(
   } catch (error) {
     console.log('Error creating commit status', error)
   }
+}
+
+interface GraphQLReviewThreadsResult {
+  repository?: {
+    pullRequest?: {
+      reviewThreads?: {
+        nodes: {
+          id: string
+          isResolved: boolean
+          comments: {
+            nodes: {
+              databaseId?: number | null
+            }[]
+          }
+        }[]
+      }
+    } | null
+  } | null
 }
 
 const REVIEW_THREADS_QUERY = `
@@ -177,7 +204,9 @@ const REVIEW_THREADS_QUERY = `
   }
 `
 
-export function extractResolvedCommentIds(graphqlResult: any): Set<number> {
+export function extractResolvedCommentIds(
+  graphqlResult: GraphQLReviewThreadsResult | null
+): Set<number> {
   const resolvedCommentIds = new Set<number>()
 
   if (graphqlResult?.repository?.pullRequest?.reviewThreads?.nodes) {
@@ -203,11 +232,14 @@ async function getResolvedCommentIds(
   prNumber: number
 ): Promise<Set<number>> {
   try {
-    const result: any = await octokit.graphql(REVIEW_THREADS_QUERY, {
-      owner,
-      repo,
-      prNumber
-    })
+    const result = await octokit.graphql<GraphQLReviewThreadsResult>(
+      REVIEW_THREADS_QUERY,
+      {
+        owner,
+        repo,
+        prNumber
+      }
+    )
 
     return extractResolvedCommentIds(result)
   } catch (error) {

@@ -72,7 +72,11 @@ You can configure the action further by providing inputs:
 - `comment_body`: (**optional**) The body of the comment to post on the PR. Use
   `{todo}` to insert the Todo content.
 - `comment_checkbox`: (**optional**) The text to use for the checkbox in the
-  comment. Use `{todo}` to insert the Todo content
+  comment. Use `{todo}` to insert the Todo content. Only used when
+  `enable_ignore_checkbox` is `true`.
+- `enable_ignore_checkbox`: (**optional**) Enable the ignore checkbox in TODO
+  comments. When disabled (default), users should use GitHub's native "Resolve
+  conversation" feature instead. Default is `false`.
 - `custom_todo_matcher`: (**optional**) Add custom comment indicators to match
   TODOs. Default matches `//`, `*` and `#` followed by `TODO` or `FIXME`.
 - `custom_ignore_matcher`: (**optional**) Add custom regex to ignore TODOs that
@@ -96,6 +100,28 @@ steps:
       comment_body: |
         "A new Todo was discovered. If it is not a priority right now,\
         consider marking it for later attention.\n{todo}\n"
-      comment_checkbox: 'Ignore'
+      enable_ignore_checkbox: false # Use GitHub's native "Resolve conversation" (recommended)
       custom_todo_matcher: "{'js': ['//', '/*'], 'py': ['#']}"
+```
+
+### Managing TODOs
+
+The action supports two ways to mark TODOs as resolved:
+
+1. **GitHub's Native "Resolve conversation" (Recommended)**: Simply mark the
+   review comment thread as resolved. The action will automatically detect this
+   via the GraphQL API and exclude resolved TODOs from the count.
+
+2. **Legacy Ignore Checkbox**: Enable `enable_ignore_checkbox: true` to add an
+   "Ignore" checkbox to each TODO comment. This is useful for teams where not
+   all members have permissions to resolve conversations.
+
+```yaml
+# Example with ignore checkbox enabled
+- name: Check for Todos
+  uses: phntmxyz/pr_todo_checker@v1
+  with:
+    token: ${{ secrets.GITHUB_TOKEN }}
+    enable_ignore_checkbox: true
+    comment_checkbox: 'Ignore'
 ```

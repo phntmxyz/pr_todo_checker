@@ -29260,14 +29260,16 @@ function wrappy (fn, cb) {
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.generateComment = void 0;
-function generateComment(bodyTemplate, checkboxTemplate, todo) {
+function generateComment(bodyTemplate, checkboxTemplate, todo, enableIgnoreCheckbox = false) {
     let comment = bodyTemplate.replace('{todo}', todo.content);
-    comment += '\n';
-    if (todo.isAdded) {
-        comment += `- [ ] ${checkboxTemplate.replace('{todo}', todo.content)}`;
-    }
-    else {
-        comment += `- [x] ${checkboxTemplate.replace('{todo}', todo.content)}`;
+    if (enableIgnoreCheckbox) {
+        comment += '\n';
+        if (todo.isAdded) {
+            comment += `- [ ] ${checkboxTemplate.replace('{todo}', todo.content)}`;
+        }
+        else {
+            comment += `- [x] ${checkboxTemplate.replace('{todo}', todo.content)}`;
+        }
     }
     return comment;
 }
@@ -29329,6 +29331,7 @@ function run() {
             const commentOnTodo = core.getInput('comment_on_todo') === 'true';
             const commentBodyTemplate = core.getInput('comment_body');
             const commentCheckboxTemplate = core.getInput('comment_checkbox');
+            const enableIgnoreCheckbox = core.getInput('enable_ignore_checkbox') === 'true';
             const customTodoMatcher = core.getInput('custom_todo_matcher');
             const customIgnoreMather = core.getInput('custom_ignore_matcher');
             const octokit = github.getOctokit(token);
@@ -29351,7 +29354,7 @@ function run() {
                 const prDiff = yield getPrDiff(octokit, pr.base.sha, pr.head.sha);
                 const todos = (0, todo_finder_1.findTodos)(prDiff, excludePatterns, customTodoMatcher, customIgnoreMather);
                 console.log('Todos:', JSON.stringify(todos));
-                yield commentPr(octokit, pr.number, botName, todos, commentBodyTemplate, commentCheckboxTemplate);
+                yield commentPr(octokit, pr.number, botName, todos, commentBodyTemplate, commentCheckboxTemplate, enableIgnoreCheckbox);
             }
         }
         catch (error) {
@@ -29378,7 +29381,7 @@ function getPrDiff(octokit, base, head) {
         return ((_a = response === null || response === void 0 ? void 0 : response.data) === null || _a === void 0 ? void 0 : _a.files) || [];
     });
 }
-function commentPr(octokit, prNumber, botName, todos, commentBodyTemplate, commentCheckboxTemplate) {
+function commentPr(octokit, prNumber, botName, todos, commentBodyTemplate, commentCheckboxTemplate, enableIgnoreCheckbox) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a, _b;
         const { owner, repo } = github.context.repo;
@@ -29420,7 +29423,7 @@ function commentPr(octokit, prNumber, botName, todos, commentBodyTemplate, comme
                 owner,
                 repo,
                 pull_number: prNumber,
-                body: (0, comment_1.generateComment)(commentBodyTemplate, commentCheckboxTemplate, todo),
+                body: (0, comment_1.generateComment)(commentBodyTemplate, commentCheckboxTemplate, todo, enableIgnoreCheckbox),
                 commit_id: headSha,
                 path: todo.filename,
                 side: 'RIGHT',
