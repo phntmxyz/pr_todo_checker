@@ -29522,21 +29522,29 @@ function updateCommitStatus(octokit, prNumber, botName) {
                     });
                     continue;
                 }
-                // Skip resolved comments - they should not be counted
+                console.log('Comment:', comment.line, comment.body);
+                // Check if resolved - count as done
                 if (resolvedCommentIds.has(comment.id)) {
-                    console.log('Skipping resolved comment:', comment.id);
+                    console.log('Comment is resolved - counting as done');
+                    doneCount += 1;
+                    todoCount += 1;
                     continue;
                 }
-                console.log('Comment:', comment.line, comment.body);
-                // Check if the comment contains a markdown checkbox which is checked
-                const matches = (_b = comment.body) === null || _b === void 0 ? void 0 : _b.match(/- \[x\]/gi);
-                if (matches != null) {
+                // Check if the comment contains a checkbox (legacy mode)
+                const hasCheckedBox = (_b = comment.body) === null || _b === void 0 ? void 0 : _b.match(/- \[x\]/gi);
+                const hasUncheckedBox = (_c = comment.body) === null || _c === void 0 ? void 0 : _c.match(/- \[ \]/gi);
+                if (hasCheckedBox != null) {
+                    // Checkbox is checked (ignored)
                     doneCount += 1;
                     todoCount += 1;
                 }
-                // Check if the comment contains a markdown checkbox which is unchecked
-                const uncheckedMatches = (_c = comment.body) === null || _c === void 0 ? void 0 : _c.match(/- \[ \]/gi);
-                if (uncheckedMatches != null) {
+                else if (hasUncheckedBox != null) {
+                    // Checkbox is unchecked (still open)
+                    todoCount += 1;
+                }
+                else {
+                    // No checkbox (modern mode) - count as open TODO
+                    // User should resolve the conversation to mark it as done
                     todoCount += 1;
                 }
             }
@@ -29622,22 +29630,29 @@ function testUpdateCommitStatus(octokit, owner, repo, prNumber) {
                     outdatedCount++;
                     continue;
                 }
-                // Skip resolved comments
+                console.log(`Comment ${comment.id} at line ${comment.line}: ACTIVE`);
+                // Check if resolved - count as done
                 if (resolvedCommentIds.has(comment.id)) {
-                    console.log(`Comment ${comment.id} is RESOLVED (skipping count)`);
+                    console.log(`Comment ${comment.id} is RESOLVED (counting as done)`);
                     resolvedCount++;
+                    doneCount += 1;
+                    todoCount += 1;
                     continue;
                 }
-                console.log(`Comment ${comment.id} at line ${comment.line}:`, comment.body);
-                // Check if the comment contains a markdown checkbox which is checked
-                const matches = (_b = comment.body) === null || _b === void 0 ? void 0 : _b.match(/- \[x\]/gi);
-                if (matches != null) {
+                // Check if the comment contains a checkbox (legacy mode)
+                const hasCheckedBox = (_b = comment.body) === null || _b === void 0 ? void 0 : _b.match(/- \[x\]/gi);
+                const hasUncheckedBox = (_c = comment.body) === null || _c === void 0 ? void 0 : _c.match(/- \[ \]/gi);
+                if (hasCheckedBox != null) {
+                    // Checkbox is checked (ignored)
                     doneCount += 1;
                     todoCount += 1;
                 }
-                // Check if the comment contains a markdown checkbox which is unchecked
-                const uncheckedMatches = (_c = comment.body) === null || _c === void 0 ? void 0 : _c.match(/- \[ \]/gi);
-                if (uncheckedMatches != null) {
+                else if (hasUncheckedBox != null) {
+                    // Checkbox is unchecked (still open)
+                    todoCount += 1;
+                }
+                else {
+                    // No checkbox (modern mode) - count as open TODO
                     todoCount += 1;
                 }
             }

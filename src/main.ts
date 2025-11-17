@@ -288,23 +288,30 @@ async function updateCommitStatus(
         continue
       }
 
-      // Skip resolved comments - they should not be counted
+      console.log('Comment:', comment.line, comment.body)
+
+      // Check if resolved - count as done
       if (resolvedCommentIds.has(comment.id)) {
-        console.log('Skipping resolved comment:', comment.id)
+        console.log('Comment is resolved - counting as done')
+        doneCount += 1
+        todoCount += 1
         continue
       }
 
-      console.log('Comment:', comment.line, comment.body)
+      // Check if the comment contains a checkbox (legacy mode)
+      const hasCheckedBox = comment.body?.match(/- \[x\]/gi)
+      const hasUncheckedBox = comment.body?.match(/- \[ \]/gi)
 
-      // Check if the comment contains a markdown checkbox which is checked
-      const matches = comment.body?.match(/- \[x\]/gi)
-      if (matches != null) {
+      if (hasCheckedBox != null) {
+        // Checkbox is checked (ignored)
         doneCount += 1
         todoCount += 1
-      }
-      // Check if the comment contains a markdown checkbox which is unchecked
-      const uncheckedMatches = comment.body?.match(/- \[ \]/gi)
-      if (uncheckedMatches != null) {
+      } else if (hasUncheckedBox != null) {
+        // Checkbox is unchecked (still open)
+        todoCount += 1
+      } else {
+        // No checkbox (modern mode) - count as open TODO
+        // User should resolve the conversation to mark it as done
         todoCount += 1
       }
     }
@@ -417,27 +424,30 @@ async function testUpdateCommitStatus(
         continue
       }
 
-      // Skip resolved comments
+      console.log(`Comment ${comment.id} at line ${comment.line}: ACTIVE`)
+
+      // Check if resolved - count as done
       if (resolvedCommentIds.has(comment.id)) {
-        console.log(`Comment ${comment.id} is RESOLVED (skipping count)`)
+        console.log(`Comment ${comment.id} is RESOLVED (counting as done)`)
         resolvedCount++
+        doneCount += 1
+        todoCount += 1
         continue
       }
 
-      console.log(
-        `Comment ${comment.id} at line ${comment.line}:`,
-        comment.body
-      )
+      // Check if the comment contains a checkbox (legacy mode)
+      const hasCheckedBox = comment.body?.match(/- \[x\]/gi)
+      const hasUncheckedBox = comment.body?.match(/- \[ \]/gi)
 
-      // Check if the comment contains a markdown checkbox which is checked
-      const matches = comment.body?.match(/- \[x\]/gi)
-      if (matches != null) {
+      if (hasCheckedBox != null) {
+        // Checkbox is checked (ignored)
         doneCount += 1
         todoCount += 1
-      }
-      // Check if the comment contains a markdown checkbox which is unchecked
-      const uncheckedMatches = comment.body?.match(/- \[ \]/gi)
-      if (uncheckedMatches != null) {
+      } else if (hasUncheckedBox != null) {
+        // Checkbox is unchecked (still open)
+        todoCount += 1
+      } else {
+        // No checkbox (modern mode) - count as open TODO
         todoCount += 1
       }
     }
