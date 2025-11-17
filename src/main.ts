@@ -403,7 +403,7 @@ export async function getTodosForDiff(
   // If PR number is provided, also test the review thread logic
   if (prNumber) {
     console.log('\n--- Testing Review Thread Logic ---')
-    await testUpdateCommitStatus(octokit, owner, repo, prNumber)
+    await testUpdateCommitStatus(octokit, owner, repo, prNumber, todos)
   }
 }
 
@@ -411,7 +411,8 @@ async function testUpdateCommitStatus(
   octokit: ReturnType<typeof github.getOctokit>,
   owner: string,
   repo: string,
-  prNumber: number
+  prNumber: number,
+  foundTodos: Todo[]
 ): Promise<void> {
   const botName = 'github-actions[bot]'
 
@@ -431,57 +432,88 @@ async function testUpdateCommitStatus(
     pull_number: prNumber
   })
   console.log(`\nFound ${comments.length} total comments`)
+  console.log(`Found ${foundTodos.length} TODOs in diff`)
   console.log('Resolved comment IDs:', Array.from(resolvedCommentIds))
 
-  let todoCount = 0
-  let doneCount = 0
+  // Map comments by filename and line for easier lookup
+  const commentMap = new Map<string, (typeof comments)[0]>()
   let outdatedCount = 0
-  let resolvedCount = 0
 
   for (const comment of comments) {
     if (comment.user?.login === botName) {
-      // If position is null or undefined, the comment is outdated
+      // If position is null or undefined, the comment is outdated - would be deleted
       if (comment.position === null || comment.position === undefined) {
-        console.log(
-          `Comment ${comment.id} is OUTDATED (would be deleted in real run)`
-        )
+        console.log(`Comment ${comment.id}: outdated`)
         outdatedCount++
         continue
       }
 
-      console.log(`Comment ${comment.id} at line ${comment.line}: ACTIVE`)
+      const key = `${comment.path}:${comment.line}`
+      commentMap.set(key, comment)
+    }
+  }
 
-      // Check if resolved - count as done
-      if (resolvedCommentIds.has(comment.id)) {
-        console.log(`Comment ${comment.id} is RESOLVED (counting as done)`)
-        resolvedCount++
-        doneCount += 1
-        todoCount += 1
-        continue
-      }
+  let todoCount = 0
+  let doneCount = 0
+  let resolvedCount = 0
+  let checkedCount = 0
+  let openCount = 0
 
-      // Check if the comment contains a checkbox (legacy mode)
-      const hasCheckedBox = comment.body?.match(/- \[x\]/gi)
-      const hasUncheckedBox = comment.body?.match(/- \[ \]/gi)
+  // Process each TODO found in the diff
+  for (const todo of foundTodos) {
+    const key = `${todo.filename}:${todo.line}`
 
-      if (hasCheckedBox != null) {
-        // Checkbox is checked (ignored)
-        doneCount += 1
-        todoCount += 1
-      } else if (hasUncheckedBox != null) {
-        // Checkbox is unchecked (still open)
-        todoCount += 1
-      } else {
-        // No checkbox (modern mode) - count as open TODO
-        todoCount += 1
-      }
+    // Skip removed TODOs - they don't count towards status
+    if (!todo.isAdded) {
+      console.log(`TODO at ${key}: removed`)
+      continue
+    }
+
+    todoCount++
+    const comment = commentMap.get(key)
+
+    if (!comment) {
+      console.log(`TODO at ${key}: no comment`)
+      openCount++
+      continue
+    }
+
+    // Check if resolved
+    if (resolvedCommentIds.has(comment.id)) {
+      console.log(`TODO at ${key}: resolved`)
+      resolvedCount++
+      doneCount++
+      continue
+    }
+
+    // Check for checkbox (legacy mode)
+    const hasCheckedBox = comment.body?.match(/- \[x\]/gi)
+    const hasUncheckedBox = comment.body?.match(/- \[ \]/gi)
+
+    if (hasCheckedBox != null) {
+      console.log(`TODO at ${key}: checked`)
+      checkedCount++
+      doneCount++
+    } else if (hasUncheckedBox != null) {
+      console.log(`TODO at ${key}: unchecked`)
+      openCount++
+    } else {
+      console.log(`TODO at ${key}: open`)
+      openCount++
     }
   }
 
   console.log('\n--- Summary ---')
+  console.log(
+    `Found ${foundTodos.length} TODOs (${foundTodos.filter(t => t.isAdded).length} new, ${foundTodos.filter(t => !t.isAdded).length} removed)`
+  )
   console.log(`Outdated comments: ${outdatedCount}`)
-  console.log(`Resolved comments: ${resolvedCount}`)
-  console.log(`Done TODOs: ${doneCount}`)
-  console.log(`Total active TODOs: ${todoCount}`)
-  console.log(`Status: ${doneCount === todoCount ? 'SUCCESS' : 'FAILURE'}`)
+  console.log(`Resolved: ${resolvedCount}`)
+  console.log(`Checked (legacy): ${checkedCount}`)
+  console.log(`Open: ${openCount}`)
+  console.log(`Done: ${doneCount}`)
+  console.log(`Total: ${todoCount}`)
+  console.log(
+    `Status: ${doneCount === todoCount ? 'SUCCESS ✓' : 'FAILURE ✗'} (${doneCount}/${todoCount})`
+  )
 }

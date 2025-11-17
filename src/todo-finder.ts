@@ -32,7 +32,10 @@ export function findTodos(
       .filter(block => block !== '' && block !== undefined)
 
     // combine diff line and diff to get the actual diff block
-    const diffs = matches.map((_, index) => blocks[index] + blocks[index + 1])
+    // Each match has 2 blocks: the header (blocks[index*2]) and content (blocks[index*2+1])
+    const diffs = matches.map(
+      (_, index) => blocks[index * 2] + blocks[index * 2 + 1]
+    )
 
     for (const diff of diffs) {
       const lines = diff.split('\n')

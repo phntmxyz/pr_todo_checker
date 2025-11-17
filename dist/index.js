@@ -29583,14 +29583,35 @@ function getTodosForDiff(pat, owner, repo, base, head, prNumber) {
         console.log('PAT:', pat);
         console.log('Owner:', owner);
         console.log('Repo:', repo);
-        console.log('Base:', base);
-        console.log('Head:', head);
-        console.log('PR Number:', prNumber || 'not provided');
         const octokit = github.getOctokit(pat);
+        // If base/head not provided, fetch from PR
+        let actualBase = base;
+        let actualHead = head;
+        if (prNumber && (!base || !head)) {
+            console.log('Fetching PR details...');
+            const { data: pr } = yield octokit.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: prNumber
+            });
+            actualBase = pr.base.ref;
+            actualHead = pr.head.ref;
+            console.log(`Fetched from PR #${prNumber}:`);
+            console.log(`  Base: ${actualBase}`);
+            console.log(`  Head: ${actualHead}`);
+        }
+        else {
+            console.log('Base:', actualBase);
+            console.log('Head:', actualHead);
+        }
+        console.log('PR Number:', prNumber || 'not provided');
+        if (!actualBase || !actualHead) {
+            throw new Error('Base and head are required');
+        }
         const response = yield octokit.rest.repos.compareCommitsWithBasehead({
             owner,
             repo,
-            basehead: `${base}...${head}`
+            basehead: `${actualBase}...${actualHead}`
         });
         const prDiff = ((_a = response === null || response === void 0 ? void 0 : response.data) === null || _a === void 0 ? void 0 : _a.files) || [];
         const todos = (0, todo_finder_1.findTodos)(prDiff, [], '{}', '');
@@ -29598,12 +29619,12 @@ function getTodosForDiff(pat, owner, repo, base, head, prNumber) {
         // If PR number is provided, also test the review thread logic
         if (prNumber) {
             console.log('\n--- Testing Review Thread Logic ---');
-            yield testUpdateCommitStatus(octokit, owner, repo, prNumber);
+            yield testUpdateCommitStatus(octokit, owner, repo, prNumber, todos);
         }
     });
 }
 exports.getTodosForDiff = getTodosForDiff;
-function testUpdateCommitStatus(octokit, owner, repo, prNumber) {
+function testUpdateCommitStatus(octokit, owner, repo, prNumber, foundTodos) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a, _b, _c;
         const botName = 'github-actions[bot]';
@@ -29617,52 +29638,76 @@ function testUpdateCommitStatus(octokit, owner, repo, prNumber) {
             pull_number: prNumber
         });
         console.log(`\nFound ${comments.length} total comments`);
+        console.log(`Found ${foundTodos.length} TODOs in diff`);
         console.log('Resolved comment IDs:', Array.from(resolvedCommentIds));
-        let todoCount = 0;
-        let doneCount = 0;
+        // Map comments by filename and line for easier lookup
+        const commentMap = new Map();
         let outdatedCount = 0;
-        let resolvedCount = 0;
         for (const comment of comments) {
             if (((_a = comment.user) === null || _a === void 0 ? void 0 : _a.login) === botName) {
-                // If position is null or undefined, the comment is outdated
+                // If position is null or undefined, the comment is outdated - would be deleted
                 if (comment.position === null || comment.position === undefined) {
-                    console.log(`Comment ${comment.id} is OUTDATED (would be deleted in real run)`);
+                    console.log(`Comment ${comment.id}: outdated`);
                     outdatedCount++;
                     continue;
                 }
-                console.log(`Comment ${comment.id} at line ${comment.line}: ACTIVE`);
-                // Check if resolved - count as done
-                if (resolvedCommentIds.has(comment.id)) {
-                    console.log(`Comment ${comment.id} is RESOLVED (counting as done)`);
-                    resolvedCount++;
-                    doneCount += 1;
-                    todoCount += 1;
-                    continue;
-                }
-                // Check if the comment contains a checkbox (legacy mode)
-                const hasCheckedBox = (_b = comment.body) === null || _b === void 0 ? void 0 : _b.match(/- \[x\]/gi);
-                const hasUncheckedBox = (_c = comment.body) === null || _c === void 0 ? void 0 : _c.match(/- \[ \]/gi);
-                if (hasCheckedBox != null) {
-                    // Checkbox is checked (ignored)
-                    doneCount += 1;
-                    todoCount += 1;
-                }
-                else if (hasUncheckedBox != null) {
-                    // Checkbox is unchecked (still open)
-                    todoCount += 1;
-                }
-                else {
-                    // No checkbox (modern mode) - count as open TODO
-                    todoCount += 1;
-                }
+                const key = `${comment.path}:${comment.line}`;
+                commentMap.set(key, comment);
+            }
+        }
+        let todoCount = 0;
+        let doneCount = 0;
+        let resolvedCount = 0;
+        let checkedCount = 0;
+        let openCount = 0;
+        // Process each TODO found in the diff
+        for (const todo of foundTodos) {
+            const key = `${todo.filename}:${todo.line}`;
+            // Skip removed TODOs - they don't count towards status
+            if (!todo.isAdded) {
+                console.log(`TODO at ${key}: removed`);
+                continue;
+            }
+            todoCount++;
+            const comment = commentMap.get(key);
+            if (!comment) {
+                console.log(`TODO at ${key}: no comment`);
+                openCount++;
+                continue;
+            }
+            // Check if resolved
+            if (resolvedCommentIds.has(comment.id)) {
+                console.log(`TODO at ${key}: resolved`);
+                resolvedCount++;
+                doneCount++;
+                continue;
+            }
+            // Check for checkbox (legacy mode)
+            const hasCheckedBox = (_b = comment.body) === null || _b === void 0 ? void 0 : _b.match(/- \[x\]/gi);
+            const hasUncheckedBox = (_c = comment.body) === null || _c === void 0 ? void 0 : _c.match(/- \[ \]/gi);
+            if (hasCheckedBox != null) {
+                console.log(`TODO at ${key}: checked`);
+                checkedCount++;
+                doneCount++;
+            }
+            else if (hasUncheckedBox != null) {
+                console.log(`TODO at ${key}: unchecked`);
+                openCount++;
+            }
+            else {
+                console.log(`TODO at ${key}: open`);
+                openCount++;
             }
         }
         console.log('\n--- Summary ---');
+        console.log(`Found ${foundTodos.length} TODOs (${foundTodos.filter(t => t.isAdded).length} new, ${foundTodos.filter(t => !t.isAdded).length} removed)`);
         console.log(`Outdated comments: ${outdatedCount}`);
-        console.log(`Resolved comments: ${resolvedCount}`);
-        console.log(`Done TODOs: ${doneCount}`);
-        console.log(`Total active TODOs: ${todoCount}`);
-        console.log(`Status: ${doneCount === todoCount ? 'SUCCESS' : 'FAILURE'}`);
+        console.log(`Resolved: ${resolvedCount}`);
+        console.log(`Checked (legacy): ${checkedCount}`);
+        console.log(`Open: ${openCount}`);
+        console.log(`Done: ${doneCount}`);
+        console.log(`Total: ${todoCount}`);
+        console.log(`Status: ${doneCount === todoCount ? 'SUCCESS ✓' : 'FAILURE ✗'} (${doneCount}/${todoCount})`);
     });
 }
 
@@ -29698,7 +29743,8 @@ function findTodos(prDiff, exclude = [], customTodoMatcherString = '{}', customI
             .split(newDiffLineRegex)
             .filter(block => block !== '' && block !== undefined);
         // combine diff line and diff to get the actual diff block
-        const diffs = matches.map((_, index) => blocks[index] + blocks[index + 1]);
+        // Each match has 2 blocks: the header (blocks[index*2]) and content (blocks[index*2+1])
+        const diffs = matches.map((_, index) => blocks[index * 2] + blocks[index * 2 + 1]);
         for (const diff of diffs) {
             const lines = diff.split('\n');
             if (lines === undefined || lines.length === 0)

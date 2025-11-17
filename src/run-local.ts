@@ -35,8 +35,8 @@ const argv = yargs(hideBin(process.argv))
     describe:
       'Pull Request number (will fetch base/head from PR if not provided)'
   })
-  .check(argv => {
-    if (!argv.pr && (!argv.base || !argv.head)) {
+  .check(args => {
+    if (!args.pr && (!args.base || !args.head)) {
       throw new Error(
         'Either --pr must be provided, or both --base and --head must be provided'
       )
