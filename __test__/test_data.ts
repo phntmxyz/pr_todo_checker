@@ -278,6 +278,38 @@ export const mixedTodoMatcherDiff: PrDiff = [
   }
 ]
 
+export const multiDiffWithTodosInAllBlocks: PrDiff = [
+  {
+    sha: '111111111',
+    filename: 'example.dart',
+    status: 'modified',
+    additions: 3,
+    deletions: 0,
+    changes: 3,
+    blob_url: '',
+    raw_url: '',
+    contents_url: '',
+    patch: `@@ -10,5 +10,6 @@ class First {
+   void methodA() {
++    // TODO in first block
+     print('A');
+   }
+ }
+@@ -20,5 +21,6 @@ class Second {
+   void methodB() {
++    // TODO in second block
+     print('B');
+   }
+ }
+@@ -30,5 +32,6 @@ class Third {
+   void methodC() {
++    // TODO in third block
+     print('C');
+   }
+ }`
+  }
+]
+
 export const multiDiffInPatch: PrDiff = [
   {
     sha: '111111111',

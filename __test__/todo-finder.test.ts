@@ -177,6 +177,34 @@ describe('extract Todos', () => {
     expect(fileTodos).toEqual(expectedTodos)
   })
 
+  it('should find todos in all blocks when file has multiple diff blocks', () => {
+    const fileTodos = findTodos(testData.multiDiffWithTodosInAllBlocks)
+
+    const expectedTodos: Todo[] = [
+      {
+        filename: 'example.dart',
+        line: 11,
+        content: 'TODO in first block',
+        isAdded: true
+      },
+      {
+        filename: 'example.dart',
+        line: 22,
+        content: 'TODO in second block',
+        isAdded: true
+      },
+      {
+        filename: 'example.dart',
+        line: 33,
+        content: 'TODO in third block',
+        isAdded: true
+      }
+    ]
+
+    expect(fileTodos).toEqual(expectedTodos)
+    expect(fileTodos).toHaveLength(3)
+  })
+
   it('should not parse diff content in code', () => {
     const customMatcher = '{}'
     const fileTodos = findTodos(testData.atAtInDiff, [], customMatcher)
