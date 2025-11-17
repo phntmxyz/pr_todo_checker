@@ -352,22 +352,47 @@ export async function getTodosForDiff(
   pat: string,
   owner: string,
   repo: string,
-  base: string,
-  head: string,
+  base?: string,
+  head?: string,
   prNumber?: number
 ): Promise<void> {
   console.log('PAT:', pat)
   console.log('Owner:', owner)
   console.log('Repo:', repo)
-  console.log('Base:', base)
-  console.log('Head:', head)
-  console.log('PR Number:', prNumber || 'not provided')
 
   const octokit = github.getOctokit(pat)
+
+  // If base/head not provided, fetch from PR
+  let actualBase = base
+  let actualHead = head
+
+  if (prNumber && (!base || !head)) {
+    console.log('Fetching PR details...')
+    const { data: pr } = await octokit.rest.pulls.get({
+      owner,
+      repo,
+      pull_number: prNumber
+    })
+    actualBase = pr.base.ref
+    actualHead = pr.head.ref
+    console.log(`Fetched from PR #${prNumber}:`)
+    console.log(`  Base: ${actualBase}`)
+    console.log(`  Head: ${actualHead}`)
+  } else {
+    console.log('Base:', actualBase)
+    console.log('Head:', actualHead)
+  }
+
+  console.log('PR Number:', prNumber || 'not provided')
+
+  if (!actualBase || !actualHead) {
+    throw new Error('Base and head are required')
+  }
+
   const response = await octokit.rest.repos.compareCommitsWithBasehead({
     owner,
     repo,
-    basehead: `${base}...${head}`
+    basehead: `${actualBase}...${actualHead}`
   })
 
   const prDiff = response?.data?.files || []

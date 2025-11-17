@@ -21,18 +21,27 @@ const argv = yargs(hideBin(process.argv))
   })
   .option('base', {
     type: 'string',
-    demandOption: true,
-    describe: 'Base branch'
+    demandOption: false,
+    describe: 'Base branch (optional if pr is provided)'
   })
   .option('head', {
     type: 'string',
-    demandOption: true,
-    describe: 'Head branch'
+    demandOption: false,
+    describe: 'Head branch (optional if pr is provided)'
   })
   .option('pr', {
     type: 'number',
     demandOption: false,
-    describe: 'Pull Request number (optional, to test review thread logic)'
+    describe:
+      'Pull Request number (will fetch base/head from PR if not provided)'
+  })
+  .check(argv => {
+    if (!argv.pr && (!argv.base || !argv.head)) {
+      throw new Error(
+        'Either --pr must be provided, or both --base and --head must be provided'
+      )
+    }
+    return true
   })
   .parseSync()
 
