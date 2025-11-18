@@ -1,145 +1,97 @@
 import { extractResolvedCommentIds } from '../src/main'
 
-describe('TODO counting behavior', () => {
-  it('should count resolved comments as done', () => {
-    // Setup: Mock data representing different comment states
-    const resolvedCommentIds = new Set([123]) // Comment 123 is resolved
+// Helper function to simulate the counting logic from updateCommitStatus
+function countTodos(
+  comments: { id: number; line: number | null; body: string }[],
+  resolvedCommentIds: Set<number>
+): { todoCount: number; doneCount: number; outdatedCount: number } {
+  let todoCount = 0
+  let doneCount = 0
+  let outdatedCount = 0
 
-    const comments = [
-      // Resolved comment (no checkbox) - should count as done
-      { id: 123, body: 'A new Todo was discovered.\nTODO: Test', position: 1 },
-      // Active comment without checkbox - should count as open
-      {
-        id: 456,
-        body: 'A new Todo was discovered.\nTODO: Another',
-        position: 2
-      },
-      // Active comment with unchecked checkbox - should count as open
-      {
-        id: 789,
-        body: 'A new Todo was discovered.\nTODO: Third\n- [ ] Ignore',
-        position: 3
-      },
-      // Comment with checked checkbox - should count as done
-      {
-        id: 101,
-        body: 'A new Todo was discovered.\nTODO: Fourth\n- [x] Ignore',
-        position: 4
-      }
-    ]
-
-    let todoCount = 0
-    let doneCount = 0
-
-    // Simulate the counting logic from updateCommitStatus
-    for (const comment of comments) {
-      // Check if resolved - count as done
-      if (resolvedCommentIds.has(comment.id)) {
-        doneCount += 1
-        todoCount += 1
-        continue
-      }
-
-      // Check if the comment contains a checkbox (legacy mode)
-      const hasCheckedBox = comment.body?.match(/- \[x\]/gi)
-      const hasUncheckedBox = comment.body?.match(/- \[ \]/gi)
-
-      if (hasCheckedBox != null) {
-        // Checkbox is checked (ignored)
-        doneCount += 1
-        todoCount += 1
-      } else if (hasUncheckedBox != null) {
-        // Checkbox is unchecked (still open)
-        todoCount += 1
-      } else {
-        // No checkbox (modern mode) - count as open TODO
-        todoCount += 1
-      }
+  for (const comment of comments) {
+    // If line is null or undefined, the comment is outdated
+    if (comment.line === null || comment.line === undefined) {
+      outdatedCount++
+      continue
     }
 
-    // Expected results:
-    // - 1 resolved (done)
-    // - 1 without checkbox (open)
-    // - 1 with unchecked checkbox (open)
-    // - 1 with checked checkbox (done)
-    // Total: 4 TODOs, 2 done, 2 open
-    expect(todoCount).toBe(4)
-    expect(doneCount).toBe(2)
+    // Check if resolved - count as done
+    if (resolvedCommentIds.has(comment.id)) {
+      doneCount += 1
+      todoCount += 1
+      continue
+    }
+
+    // Check if the comment contains a checkbox (legacy mode)
+    const hasCheckedBox = comment.body?.match(/- \[x\]/gi)
+    const hasUncheckedBox = comment.body?.match(/- \[ \]/gi)
+
+    if (hasCheckedBox != null) {
+      doneCount += 1
+      todoCount += 1
+    } else if (hasUncheckedBox != null) {
+      todoCount += 1
+    } else {
+      todoCount += 1
+    }
+  }
+
+  return { todoCount, doneCount, outdatedCount }
+}
+
+describe('TODO counting behavior', () => {
+  it('should skip outdated comments (line is null)', () => {
+    const comments = [
+      { id: 111, line: null, body: 'TODO: Outdated' },
+      { id: 222, line: 42, body: 'TODO: Active' }
+    ]
+
+    const result = countTodos(comments, new Set())
+
+    expect(result.outdatedCount).toBe(1)
+    expect(result.todoCount).toBe(1)
+    expect(result.doneCount).toBe(0)
+  })
+
+  it('should count resolved comments as done', () => {
+    const comments = [
+      { id: 123, line: 10, body: 'TODO: Test' }, // Resolved
+      { id: 456, line: 20, body: 'TODO: Another' }, // Open
+      { id: 789, line: 30, body: 'TODO: Third\n- [ ] Ignore' }, // Open (unchecked)
+      { id: 101, line: 40, body: 'TODO: Fourth\n- [x] Ignore' } // Done (checked)
+    ]
+
+    const result = countTodos(comments, new Set([123]))
+
+    expect(result.todoCount).toBe(4)
+    expect(result.doneCount).toBe(2) // 1 resolved + 1 checked
   })
 
   it('should count comments without checkbox as open', () => {
-    const resolvedCommentIds = new Set()
-
     const comments = [
-      { id: 1, body: 'TODO without checkbox', position: 1 },
-      { id: 2, body: 'Another TODO without checkbox', position: 2 }
+      { id: 1, line: 10, body: 'TODO without checkbox' },
+      { id: 2, line: 20, body: 'Another TODO without checkbox' }
     ]
 
-    let todoCount = 0
-    let doneCount = 0
+    const result = countTodos(comments, new Set())
 
-    for (const comment of comments) {
-      if (resolvedCommentIds.has(comment.id)) {
-        doneCount += 1
-        todoCount += 1
-        continue
-      }
-
-      const hasCheckedBox = comment.body?.match(/- \[x\]/gi)
-      const hasUncheckedBox = comment.body?.match(/- \[ \]/gi)
-
-      if (hasCheckedBox != null) {
-        doneCount += 1
-        todoCount += 1
-      } else if (hasUncheckedBox != null) {
-        todoCount += 1
-      } else {
-        todoCount += 1
-      }
-    }
-
-    expect(todoCount).toBe(2)
-    expect(doneCount).toBe(0)
+    expect(result.todoCount).toBe(2)
+    expect(result.doneCount).toBe(0)
   })
 
   it('should handle mix of resolved and checkbox-based completion', () => {
-    const resolvedCommentIds = new Set([100, 200])
-
     const comments = [
-      { id: 100, body: 'TODO: Resolved via conversation', position: 1 },
-      { id: 200, body: 'TODO: Also resolved', position: 2 },
-      { id: 300, body: 'TODO: With checked box\n- [x] Ignore', position: 3 },
-      { id: 400, body: 'TODO: Still open', position: 4 }
+      { id: 100, line: 10, body: 'TODO: Resolved via conversation' },
+      { id: 200, line: 20, body: 'TODO: Also resolved' },
+      { id: 300, line: 30, body: 'TODO: With checked box\n- [x] Ignore' },
+      { id: 400, line: 40, body: 'TODO: Still open' }
     ]
 
-    let todoCount = 0
-    let doneCount = 0
+    const result = countTodos(comments, new Set([100, 200]))
 
-    for (const comment of comments) {
-      if (resolvedCommentIds.has(comment.id)) {
-        doneCount += 1
-        todoCount += 1
-        continue
-      }
-
-      const hasCheckedBox = comment.body?.match(/- \[x\]/gi)
-      const hasUncheckedBox = comment.body?.match(/- \[ \]/gi)
-
-      if (hasCheckedBox != null) {
-        doneCount += 1
-        todoCount += 1
-      } else if (hasUncheckedBox != null) {
-        todoCount += 1
-      } else {
-        todoCount += 1
-      }
-    }
-
-    // 2 resolved + 1 checked checkbox = 3 done
-    // 1 open without checkbox
-    // Total: 4 TODOs, 3 done
-    expect(todoCount).toBe(4)
-    expect(doneCount).toBe(3)
+    expect(result.todoCount).toBe(4)
+    expect(result.doneCount).toBe(3) // 2 resolved + 1 checked
   })
 })
 

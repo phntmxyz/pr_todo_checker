@@ -114,8 +114,8 @@ async function commentPr(
 
   const existingTodosWithComment: Todo[] = []
   for (const comment of botComments) {
-    // If position is null or undefined, the comment is outdated and should be deleted
-    if (comment.position === null || comment.position === undefined) {
+    // If line is null or undefined, the comment is outdated and should be deleted
+    if (comment.line === null || comment.line === undefined) {
       await octokit.rest.pulls.deleteReviewComment({
         owner,
         repo,
@@ -277,8 +277,8 @@ async function updateCommitStatus(
   let doneCount = 0
   for (const comment of comments) {
     if (comment.user?.login === botName) {
-      // If position is null or undefined, the comment is outdated and should be deleted
-      if (comment.position === null || comment.position === undefined) {
+      // If line is null or undefined, the comment is outdated and should be deleted
+      if (comment.line === null || comment.line === undefined) {
         console.log('Deleting outdated comment:', comment.id)
         await octokit.rest.pulls.deleteReviewComment({
           owner,
@@ -441,8 +441,8 @@ async function testUpdateCommitStatus(
 
   for (const comment of comments) {
     if (comment.user?.login === botName) {
-      // If position is null or undefined, the comment is outdated - would be deleted
-      if (comment.position === null || comment.position === undefined) {
+      // If line is null or undefined, the comment is outdated - would be deleted
+      if (comment.line === null || comment.line === undefined) {
         console.log(`Comment ${comment.id}: outdated`)
         outdatedCount++
         continue

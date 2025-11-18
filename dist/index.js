@@ -29399,8 +29399,8 @@ function commentPr(octokit, prNumber, botName, todos, commentBodyTemplate, comme
         const addedTodos = todos.filter(todo => todo.isAdded);
         const existingTodosWithComment = [];
         for (const comment of botComments) {
-            // If position is null or undefined, the comment is outdated and should be deleted
-            if (comment.position === null || comment.position === undefined) {
+            // If line is null or undefined, the comment is outdated and should be deleted
+            if (comment.line === null || comment.line === undefined) {
                 yield octokit.rest.pulls.deleteReviewComment({
                     owner,
                     repo,
@@ -29512,8 +29512,8 @@ function updateCommitStatus(octokit, prNumber, botName) {
         let doneCount = 0;
         for (const comment of comments) {
             if (((_a = comment.user) === null || _a === void 0 ? void 0 : _a.login) === botName) {
-                // If position is null or undefined, the comment is outdated and should be deleted
-                if (comment.position === null || comment.position === undefined) {
+                // If line is null or undefined, the comment is outdated and should be deleted
+                if (comment.line === null || comment.line === undefined) {
                     console.log('Deleting outdated comment:', comment.id);
                     yield octokit.rest.pulls.deleteReviewComment({
                         owner,
@@ -29645,8 +29645,8 @@ function testUpdateCommitStatus(octokit, owner, repo, prNumber, foundTodos) {
         let outdatedCount = 0;
         for (const comment of comments) {
             if (((_a = comment.user) === null || _a === void 0 ? void 0 : _a.login) === botName) {
-                // If position is null or undefined, the comment is outdated - would be deleted
-                if (comment.position === null || comment.position === undefined) {
+                // If line is null or undefined, the comment is outdated - would be deleted
+                if (comment.line === null || comment.line === undefined) {
                     console.log(`Comment ${comment.id}: outdated`);
                     outdatedCount++;
                     continue;
