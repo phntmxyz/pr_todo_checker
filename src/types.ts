@@ -1,5 +1,5 @@
 export type PrDiff = {
-  sha: string
+  sha: string | null
   filename: string
   status:
     | 'added'
