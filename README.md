@@ -29,7 +29,7 @@ on:
 
 jobs:
   find_todos:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
 
     steps:
       - name: Checkout code
