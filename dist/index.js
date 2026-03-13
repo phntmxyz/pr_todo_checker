@@ -39270,11 +39270,8 @@ function testUpdateCommitStatus(octokit, owner, repo, prNumber, foundTodos) {
 
 ;// CONCATENATED MODULE: ./src/index.ts
 
-// eslint-disable-next-line github/no-then
-run().catch(error => {
-    console.error(error);
-    process.exit(1);
-});
+// eslint-disable-next-line @typescript-eslint/no-floating-promises
+run();
 
 })();
 
