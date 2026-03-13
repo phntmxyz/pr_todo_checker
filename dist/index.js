@@ -39270,6 +39270,7 @@ function testUpdateCommitStatus(octokit, owner, repo, prNumber, foundTodos) {
 
 ;// CONCATENATED MODULE: ./src/index.ts
 
+// eslint-disable-next-line github/no-then
 run().catch(error => {
     console.error(error);
     process.exit(1);
